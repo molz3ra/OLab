@@ -9,6 +9,7 @@ const RequestSchema = z.object({
   input: z.string().min(3, 'A URL ou texto da página é obrigatório.'),
   niche: z.string().default('SaaS B2B'),
   personaIds: z.array(z.string()).min(1).default(['cfo-skeptic', 'dev-senior', 'busy-smb']),
+  apiKey: z.string().optional(),
   customPersona: z
     .object({
       name: z.string(),
@@ -33,7 +34,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { input, niche, personaIds, customPersona } = parsed.data;
+    const { input, niche, personaIds, customPersona, apiKey: bodyApiKey } = parsed.data;
+
+    // Resolução da chave do Gemini: cabeçalho HTTP > corpo JSON > variáveis de ambiente
+    const headerApiKey = req.headers.get('x-gemini-api-key');
+    const effectiveApiKey =
+      headerApiKey?.trim() ||
+      bodyApiKey?.trim() ||
+      process.env.GEMINI_API_KEY?.trim() ||
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim() ||
+      undefined;
 
     // Etapa 1: Scraping e sanitização
     const scrapeResult = await scrapeLandingPage(input);
@@ -54,18 +64,15 @@ export async function POST(req: NextRequest) {
 
     // Etapa 3: Execução paralela dos agentes e consolidação
     const isUrl = input.trim().startsWith('http://') || input.trim().startsWith('https://');
-    const { report, parallelDurationMs, consolidationDurationMs } = await runSyntheticFocusGroup({
+    const { report, parallelDurationMs, consolidationDurationMs, modelUsed } = await runSyntheticFocusGroup({
       pageContent: scrapeResult.markdown,
       personas: selectedPersonas,
       niche,
       url: isUrl ? input.trim() : undefined,
+      apiKey: effectiveApiKey,
     });
 
     const totalExecutionTimeMs = Math.round(performance.now() - overallStart);
-
-    const hasApiKey = Boolean(
-      process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY
-    );
 
     const responsePayload: AnalysisResponse = {
       report,
@@ -76,21 +83,28 @@ export async function POST(req: NextRequest) {
         totalExecutionTimeMs,
         rawCharCount: scrapeResult.charCount,
         estimatedTokensUsed: scrapeResult.estimatedTokens,
-        modelUsed: hasApiKey ? 'gemini-2.0-flash (Google AI SDK)' : 'Simulador Sintético Determinado',
+        modelUsed,
         scrapedMarkdownPreview: scrapeResult.markdown.substring(0, 1500) + '...',
       },
     };
 
     return NextResponse.json(responsePayload);
   } catch (err) {
-    console.error('[API /analyze] Erro não tratado:', err);
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error('[API /analyze] Erro capturado no pipeline:', errorMsg);
+
+    // Se o erro for de autenticação ou cota da API da Google
+    const isAuthError =
+      /api key|permission|unauthorized|quota|resource exhausted/i.test(errorMsg);
+
     return NextResponse.json(
       {
-        error: 'Erro interno ao processar a análise do Focus Group.',
-        message: err instanceof Error ? err.message : String(err),
+        error: isAuthError
+          ? 'Erro de autenticação ou cota no Google Gemini'
+          : 'Falha ao processar a auditoria do Focus Group.',
+        message: errorMsg,
       },
-      { status: 500 }
+      { status: isAuthError ? 401 : 500 }
     );
   }
 }
-

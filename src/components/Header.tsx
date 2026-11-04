@@ -1,14 +1,21 @@
 'use client';
 
 import React from 'react';
-import { Terminal, Shield } from 'lucide-react';
+import { Terminal, Shield, Key } from 'lucide-react';
 
 interface HeaderProps {
   onOpenTelemetry: () => void;
   hasTelemetryData: boolean;
+  onOpenApiKey: () => void;
+  hasApiKey: boolean;
 }
 
-export function Header({ onOpenTelemetry, hasTelemetryData }: HeaderProps) {
+export function Header({
+  onOpenTelemetry,
+  hasTelemetryData,
+  onOpenApiKey,
+  hasApiKey,
+}: HeaderProps) {
   return (
     <header className="sticky top-4 z-40 px-4 sm:px-6">
       <div className="max-w-5xl mx-auto rounded-full bg-[#0a0c10]/85 backdrop-blur-xl border border-white/[0.08] shadow-[0_8px_32px_rgba(0,0,0,0.5)] px-4 sm:px-6 py-2.5 flex items-center justify-between">
@@ -29,6 +36,25 @@ export function Header({ onOpenTelemetry, hasTelemetryData }: HeaderProps) {
 
         {/* Right Actions */}
         <div className="flex items-center space-x-2.5">
+          {/* Gemini API Key Button */}
+          <button
+            onClick={onOpenApiKey}
+            className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full text-[11px] font-mono border tactile-btn ${
+              hasApiKey
+                ? 'bg-emerald-500/[0.08] border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/[0.15]'
+                : 'bg-amber-500/[0.08] border-amber-500/25 text-amber-300 hover:bg-amber-500/[0.14]'
+            }`}
+          >
+            <Key className="w-3 h-3" />
+            <span className="hidden sm:inline">{hasApiKey ? 'Gemini IA Ativo' : 'Configurar Chave'}</span>
+            <span className="sm:hidden">{hasApiKey ? 'IA Ativa' : 'Chave'}</span>
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                hasApiKey ? 'bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.8)]' : 'bg-amber-400 animate-pulse'
+              }`}
+            />
+          </button>
+
           {/* Status Pod / Telemetry Trigger */}
           <button
             onClick={onOpenTelemetry}
@@ -48,9 +74,9 @@ export function Header({ onOpenTelemetry, hasTelemetryData }: HeaderProps) {
             <span className="tracking-tight">&lt;/&gt; Telemetria</span>
           </button>
 
-          {/* Minimal GitHub link */}
+          {/* GitHub link */}
           <a
-            href="https://github.com/molz3ra/0004132413"
+            href="https://github.com/molz3ra/OLab"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="GitHub Repository"

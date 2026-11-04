@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ArrowRight, SlidersHorizontal, Plus, Check, CornerDownRight, Globe, AlignLeft } from 'lucide-react';
+import { ArrowRight, SlidersHorizontal, Plus, Check, CornerDownRight, Globe, AlignLeft, Sparkles, Key } from 'lucide-react';
 import { PRESET_PERSONAS, PersonaArchetype } from '@/lib/personas';
 import { PRESET_ANALYSES, PresetItem } from '@/lib/presets';
 
@@ -19,6 +19,8 @@ interface HeroInputProps {
   }) => void;
   onSelectPreset: (preset: PresetItem) => void;
   isLoading: boolean;
+  hasApiKey?: boolean;
+  onOpenApiKey?: () => void;
 }
 
 const NICHES = [
@@ -30,7 +32,13 @@ const NICHES = [
   'Serviços Corporativos',
 ];
 
-export function HeroInput({ onAnalyze, onSelectPreset, isLoading }: HeroInputProps) {
+export function HeroInput({
+  onAnalyze,
+  onSelectPreset,
+  isLoading,
+  hasApiKey,
+  onOpenApiKey,
+}: HeroInputProps) {
   const [mode, setMode] = useState<'url' | 'text'>('url');
   const [inputValue, setInputValue] = useState('');
   const [selectedNiche, setSelectedNiche] = useState('SaaS B2B & Fintech');
@@ -199,7 +207,7 @@ export function HeroInput({ onAnalyze, onSelectPreset, isLoading }: HeroInputPro
                 </button>
               </div>
 
-              {/* Persona Grid (Clean Vector Glyphs, Zero Emoji Slop) */}
+              {/* Persona Grid (Clean Vector Glyphs) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                 {PRESET_PERSONAS.map((p) => {
                   const isSelected = selectedPersonaIds.includes(p.id);
@@ -283,16 +291,42 @@ export function HeroInput({ onAnalyze, onSelectPreset, isLoading }: HeroInputPro
               )}
             </div>
 
-            {/* Island Button Architecture with Button-in-Button */}
-            <div className="pt-2">
+            {/* API Key Status Pod & Submit Button */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between text-xs px-1">
+                {hasApiKey ? (
+                  <div className="flex items-center gap-2 text-[11px] font-mono text-emerald-400">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.9)]" />
+                    <span>Gemini 2.0 Flash ativado com sua API Key</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-400">
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                    <span>Modo Heurístico Sintético</span>
+                    {onOpenApiKey && (
+                      <button
+                        type="button"
+                        onClick={onOpenApiKey}
+                        className="ml-2 text-emerald-400 hover:text-emerald-300 underline underline-offset-2 flex items-center gap-1 cursor-pointer font-medium"
+                      >
+                        <Key className="w-3 h-3" />
+                        <span>Ativar IA Real com sua Chave Gratuita →</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full relative group py-3.5 pl-6 pr-3.5 rounded-full bg-white text-zinc-950 hover:bg-zinc-100 font-semibold text-xs tracking-tight shadow-xl shadow-black/40 transition-all flex items-center justify-between disabled:opacity-40 disabled:cursor-not-allowed tactile-btn"
+                className="w-full relative group py-3.5 pl-6 pr-3.5 rounded-full bg-white text-zinc-950 hover:bg-zinc-100 font-semibold text-xs tracking-tight shadow-xl shadow-black/40 transition-all flex items-center justify-between disabled:opacity-40 disabled:cursor-not-allowed tactile-btn cursor-pointer"
               >
                 <span className="font-medium text-sm">
                   {isLoading
                     ? 'Orquestrando Focus Group Sintético em Paralelo...'
+                    : hasApiKey
+                    ? 'Executar Auditoria de Fricção com Gemini 2.0 Flash'
                     : 'Executar Auditoria de Fricção (Pipeline Paralelo)'}
                 </span>
                 <span className="w-8 h-8 rounded-full bg-black/10 flex items-center justify-center group-hover:translate-x-0.5 transition-transform">
@@ -405,7 +439,7 @@ export function HeroInput({ onAnalyze, onSelectPreset, isLoading }: HeroInputPro
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-white text-zinc-950 text-xs font-semibold hover:bg-zinc-200 tactile-btn"
+                  className="px-4 py-1.5 rounded-lg bg-white text-zinc-950 text-xs font-semibold hover:bg-zinc-200 tactile-btn cursor-pointer"
                 >
                   Adicionar ao Comitê
                 </button>

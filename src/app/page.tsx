@@ -1,21 +1,51 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { HeroInput } from '@/components/HeroInput';
 import { ExecutionProgress } from '@/components/ExecutionProgress';
 import { ReportDashboard } from '@/components/ReportDashboard';
 import { TelemetryDrawer } from '@/components/TelemetryDrawer';
+import { ApiKeyModal } from '@/components/ApiKeyModal';
 import { AnalysisResponse, FinalReport, Telemetry } from '@/types/analysis';
 import { PRESET_ANALYSES, PresetItem } from '@/lib/presets';
+
+const STORAGE_KEY = 'olab_gemini_api_key';
 
 export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeReport, setActiveReport] = useState<FinalReport | null>(null);
   const [activeTelemetry, setActiveTelemetry] = useState<Telemetry | null>(null);
   const [isTelemetryOpen, setIsTelemetryOpen] = useState(false);
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [apiKey, setApiKey] = useState('');
   const [activePersonasCount, setActivePersonasCount] = useState(3);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Carrega chave salva do usuário do localStorage
+  useEffect(() => {
+    try {
+      const savedKey = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('gemini_api_key') || '';
+      if (savedKey) {
+        setApiKey(savedKey);
+      }
+    } catch (e) {
+      console.warn('Não foi possível ler o localStorage:', e);
+    }
+  }, []);
+
+  const handleSaveApiKey = (newKey: string) => {
+    setApiKey(newKey);
+    try {
+      if (newKey) {
+        localStorage.setItem(STORAGE_KEY, newKey);
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    } catch (e) {
+      console.warn('Não foi possível salvar no localStorage:', e);
+    }
+  };
 
   // Execução via API (/api/analyze)
   const handleAnalyze = async (params: {
@@ -38,13 +68,19 @@ export default function Home() {
     try {
       const response = await fetch('/api/analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(apiKey ? { 'x-gemini-api-key': apiKey } : {}),
+        },
+        body: JSON.stringify({
+          ...params,
+          apiKey: apiKey || undefined,
+        }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Falha ao processar a análise.');
+        throw new Error(errorData.message || errorData.error || 'Falha ao processar a análise.');
       }
 
       const data: AnalysisResponse = await response.json();
@@ -79,6 +115,8 @@ export default function Home() {
       <Header
         onOpenTelemetry={() => setIsTelemetryOpen(true)}
         hasTelemetryData={Boolean(activeTelemetry)}
+        onOpenApiKey={() => setIsApiKeyModalOpen(true)}
+        hasApiKey={Boolean(apiKey)}
       />
 
       {/* Main Content Area */}
@@ -88,19 +126,34 @@ export default function Home() {
           onAnalyze={handleAnalyze}
           onSelectPreset={handleSelectPreset}
           isLoading={isLoading}
+          hasApiKey={Boolean(apiKey)}
+          onOpenApiKey={() => setIsApiKeyModalOpen(true)}
         />
 
         {/* Error Alert Banner */}
         {errorMessage && (
           <div className="max-w-3xl mx-auto px-4 my-4">
             <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center justify-between">
-              <span>{errorMessage}</span>
-              <button
-                onClick={() => setErrorMessage(null)}
-                className="text-rose-400 hover:text-white font-mono text-sm ml-4"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-rose-400">Atenção:</span>
+                <span>{errorMessage}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                {!apiKey && (
+                  <button
+                    onClick={() => setIsApiKeyModalOpen(true)}
+                    className="underline text-emerald-400 hover:text-emerald-300 font-mono text-[11px]"
+                  >
+                    Inserir Chave Gemini
+                  </button>
+                )}
+                <button
+                  onClick={() => setErrorMessage(null)}
+                  className="text-rose-400 hover:text-white font-mono text-sm ml-2 cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -132,6 +185,14 @@ export default function Home() {
         onClose={() => setIsTelemetryOpen(false)}
         telemetry={activeTelemetry}
         report={activeReport}
+      />
+
+      {/* Bring Your Own Key (BYOK) Modal */}
+      <ApiKeyModal
+        isOpen={isApiKeyModalOpen}
+        onClose={() => setIsApiKeyModalOpen(false)}
+        apiKey={apiKey}
+        onSaveApiKey={handleSaveApiKey}
       />
     </div>
   );
