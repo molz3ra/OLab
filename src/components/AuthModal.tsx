@@ -9,6 +9,7 @@ interface AuthModalProps {
   onClose: () => void;
   onSuccess?: () => void;
   initialMode?: "login" | "signup";
+  onOpenPrivacy?: () => void;
 }
 
 export function AuthModal({
@@ -16,6 +17,7 @@ export function AuthModal({
   onClose,
   onSuccess,
   initialMode = "login",
+  onOpenPrivacy,
 }: AuthModalProps) {
   const [mode, setMode] = useState<"login" | "signup">(initialMode);
   const [name, setName] = useState("");
@@ -299,9 +301,39 @@ export function AuthModal({
           </button>
         </form>
 
-        <p className="mt-4 text-center text-[10px] text-[var(--color-text-tertiary)]">
-          Seus dados e relatórios ficam armazenados de forma criptografada e isolada.
-        </p>
+        <div className="mt-4 text-center text-[10px] text-[var(--color-text-tertiary)] leading-normal">
+          {mode === "signup" ? (
+            <p>
+              Ao criar sua conta, você concorda com nossos{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenPrivacy?.();
+                }}
+                className="text-[var(--color-accent)] underline hover:opacity-80"
+              >
+                Termos de Uso e Política de Privacidade (LGPD)
+              </button>
+              .
+            </p>
+          ) : (
+            <p>
+              Seus dados e relatórios ficam armazenados de forma criptografada.{" "}
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenPrivacy?.();
+                }}
+                className="text-[var(--color-accent)] underline hover:opacity-80"
+              >
+                Privacidade & LGPD
+              </button>
+              .
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

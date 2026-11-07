@@ -323,3 +323,30 @@ export async function resetUserPersonas(userId: string): Promise<void> {
   const stmt = db.prepare("DELETE FROM user_personas WHERE userId = ?");
   stmt.run(userId);
 }
+
+/**
+ * Exclusão definitiva de conta e todos os dados associados (Conformidade LGPD - Art. 18, VI)
+ */
+export async function deleteEntireUserAccount(userId: string): Promise<void> {
+  const turso = getTursoClient();
+  if (turso) {
+    await turso.batch([
+      { sql: "DELETE FROM user_reports WHERE userId = ?", args: [userId] },
+      { sql: "DELETE FROM user_personas WHERE userId = ?", args: [userId] },
+      { sql: "DELETE FROM user_settings WHERE userId = ?", args: [userId] },
+      { sql: "DELETE FROM session WHERE userId = ?", args: [userId] },
+      { sql: "DELETE FROM account WHERE userId = ?", args: [userId] },
+      { sql: "DELETE FROM user WHERE id = ?", args: [userId] },
+    ]);
+    return;
+  }
+
+  const db = getDatabase();
+  db.exec("PRAGMA foreign_keys = ON;");
+  db.prepare("DELETE FROM user_reports WHERE userId = ?").run(userId);
+  db.prepare("DELETE FROM user_personas WHERE userId = ?").run(userId);
+  db.prepare("DELETE FROM user_settings WHERE userId = ?").run(userId);
+  db.prepare("DELETE FROM session WHERE userId = ?").run(userId);
+  db.prepare("DELETE FROM account WHERE userId = ?").run(userId);
+  db.prepare("DELETE FROM user WHERE id = ?").run(userId);
+}

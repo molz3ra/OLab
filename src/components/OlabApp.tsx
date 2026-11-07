@@ -63,6 +63,7 @@ import { AuthModal } from "./AuthModal";
 import { TrialGateModal } from "./TrialGateModal";
 import { AccountModal } from "./AccountModal";
 import { UserMenu } from "./UserMenu";
+import { PrivacyPolicyModal } from "./PrivacyPolicyModal";
 
 type View = "studio" | "report" | "reports" | "personas" | "guide";
 type Dialog = "key" | "persona" | "telemetry" | "clear" | null;
@@ -127,6 +128,7 @@ function Sidebar({
   quota,
   onOpenAuth,
   onOpenAccount,
+  onOpenPrivacy,
 }: {
   view: View;
   onNavigate: (view: View) => void;
@@ -143,6 +145,7 @@ function Sidebar({
   quota: GuestQuota;
   onOpenAuth: (mode?: "login" | "signup") => void;
   onOpenAccount: () => void;
+  onOpenPrivacy?: () => void;
 }) {
   const [compact, setCompact] = useState(() => window.matchMedia("(max-width: 800px)").matches);
   useEffect(() => {
@@ -226,7 +229,27 @@ function Sidebar({
           </button>
           <ThemeSwitch value={theme} onChange={onTheme} />
           <div className="sidebar-version">
-            <span>OLAB / V.03</span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: "4px" }}>
+              <span>OLAB / V.03</span>
+              {onOpenPrivacy && (
+                <button
+                  type="button"
+                  onClick={onOpenPrivacy}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    color: "var(--color-text-tertiary)",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                    fontSize: "11px",
+                  }}
+                  className="hover:text-[var(--color-text-primary)]"
+                >
+                  Privacidade & LGPD
+                </button>
+              )}
+            </div>
             <span>Feito para questionar.</span>
           </div>
         </div>
@@ -401,6 +424,7 @@ function Studio({
   session,
   guestQuota,
   onOpenAuth,
+  onOpenPrivacy,
 }: {
   draft: Draft;
   setDraft: (draft: Draft) => void;
@@ -419,6 +443,7 @@ function Studio({
   session: { user: { id: string; name: string; email: string } } | null;
   guestQuota: GuestQuota;
   onOpenAuth: (mode?: "login" | "signup") => void;
+  onOpenPrivacy?: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [clipboardError, setClipboardError] = useState("");
@@ -946,7 +971,27 @@ function Studio({
       </div>
       <footer className="page-footer">
         <span>BOAS PERGUNTAS VÊM ANTES DE BOAS CONVERSÕES.</span>
-        <span>ObjectionLab © {new Date().getFullYear()}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          {onOpenPrivacy && (
+            <button
+              type="button"
+              onClick={onOpenPrivacy}
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                color: "var(--color-text-tertiary)",
+                textDecoration: "underline",
+                cursor: "pointer",
+                fontSize: "12px",
+              }}
+              className="hover:text-[var(--color-text-primary)]"
+            >
+              Termos & Privacidade (LGPD)
+            </button>
+          )}
+          <span>ObjectionLab © {new Date().getFullYear()}</span>
+        </div>
       </footer>
     </>
   );
@@ -2815,6 +2860,28 @@ export default function App() {
   const [authModalMode, setAuthModalMode] = useState<"login" | "signup">("login");
   const [trialGateOpen, setTrialGateOpen] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const [privacyModalOpen, setPrivacyModalOpen] = useState(false);
+  const [showLgpdBanner, setShowLgpdBanner] = useState(false);
+
+  useEffect(() => {
+    try {
+      const consented = localStorage.getItem("olab_lgpd_consent");
+      if (!consented) {
+        setShowLgpdBanner(true);
+      }
+    } catch {
+      // safe fallback
+    }
+  }, []);
+
+  const dismissLgpdBanner = () => {
+    try {
+      localStorage.setItem("olab_lgpd_consent", "true");
+    } catch {
+      // safe fallback
+    }
+    setShowLgpdBanner(false);
+  };
   const [view, setView] = useState<View>("studio");
   const [dialog, setDialog] = useState<Dialog>(null);
   const [keyNotice, setKeyNotice] = useState("");
@@ -3216,13 +3283,14 @@ export default function App() {
         onTheme={changeTheme}
         mobile={mobileNav}
         onClose={() => setMobileNav(false)}
-        blocked={!!dialog || authModalOpen || trialGateOpen || accountModalOpen}
+        blocked={!!dialog || authModalOpen || trialGateOpen || accountModalOpen || privacyModalOpen}
         session={session?.data ?? null}
         quota={guestQuota}
         onOpenAuth={openAuth}
         onOpenAccount={() => setAccountModalOpen(true)}
+        onOpenPrivacy={() => setPrivacyModalOpen(true)}
       />
-      <div className="workspace-main" inert={!!dialog || mobileNav || authModalOpen || trialGateOpen || accountModalOpen}>
+      <div className="workspace-main" inert={!!dialog || mobileNav || authModalOpen || trialGateOpen || accountModalOpen || privacyModalOpen}>
         <header className="topbar">
           <div className="breadcrumbs">
             <button
@@ -3319,6 +3387,7 @@ export default function App() {
               session={session?.data ?? null}
               guestQuota={guestQuota}
               onOpenAuth={openAuth}
+              onOpenPrivacy={() => setPrivacyModalOpen(true)}
             />
           )}
           {view === "report" && activeReport && (
@@ -3427,10 +3496,15 @@ export default function App() {
           </button>
         </div>
       )}
+      <PrivacyPolicyModal
+        isOpen={privacyModalOpen}
+        onClose={() => setPrivacyModalOpen(false)}
+      />
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
         initialMode={authModalMode}
+        onOpenPrivacy={() => setPrivacyModalOpen(true)}
         onSuccess={() => {
           setAuthModalOpen(false);
           setTrialGateOpen(false);
@@ -3453,7 +3527,88 @@ export default function App() {
           reportsCount={reports.length}
           personasCount={personas.length}
           onExportBackup={exportBackup}
+          onOpenPrivacy={() => setPrivacyModalOpen(true)}
         />
+      )}
+      {showLgpdBanner && (
+        <div
+          role="region"
+          aria-label="Aviso de Privacidade e Cookies (LGPD)"
+          style={{
+            position: "fixed",
+            bottom: "20px",
+            right: "20px",
+            zIndex: 40,
+            maxWidth: "380px",
+            padding: "16px",
+            borderRadius: "12px",
+            border: "1px solid var(--color-border)",
+            background: "var(--color-surface)",
+            boxShadow: "0 20px 40px rgba(0, 0, 0, 0.4)",
+            display: "flex",
+            flexDirection: "column",
+            gap: "10px",
+            fontSize: "12px",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--color-accent)", fontWeight: 600 }}>
+              <Icon name="shieldCheck" size={16} />
+              <span style={{ fontFamily: "var(--font-serif)" }}>Privacidade & LGPD</span>
+            </div>
+            <button
+              type="button"
+              onClick={dismissLgpdBanner}
+              style={{
+                background: "none",
+                border: "none",
+                padding: "2px",
+                color: "var(--color-text-tertiary)",
+                cursor: "pointer",
+              }}
+              aria-label="Dispensar aviso"
+            >
+              <Icon name="close" size={14} />
+            </button>
+          </div>
+          <p style={{ margin: 0, color: "var(--color-text-secondary)", fontSize: "11px", lineHeight: "1.5" }}>
+            Utilizamos apenas cookies essenciais para autenticação segura e tratamento de dados conforme a{" "}
+            <strong>Lei Federal 13.709/2018 (LGPD)</strong>.
+          </p>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: "8px", borderTop: "1px solid var(--color-border-subtle)" }}>
+            <button
+              type="button"
+              onClick={() => setPrivacyModalOpen(true)}
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                color: "var(--color-accent)",
+                textDecoration: "underline",
+                cursor: "pointer",
+                fontSize: "11px",
+              }}
+            >
+              Ler termos completos
+            </button>
+            <button
+              type="button"
+              onClick={dismissLgpdBanner}
+              style={{
+                padding: "5px 12px",
+                borderRadius: "6px",
+                backgroundColor: "var(--color-accent)",
+                color: "var(--color-bg)",
+                fontWeight: 600,
+                fontSize: "11px",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              Entendido
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
