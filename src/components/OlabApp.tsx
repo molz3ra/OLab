@@ -202,15 +202,6 @@ function Sidebar({
             </button>
           ))}
         </nav>
-        <div className="sidebar-note">
-          <span className="note-rule" />
-          <p>
-            Menos suposições.
-            <br />
-            Perguntas melhores.
-          </p>
-          <span>Um teste antes do investimento.</span>
-        </div>
         <div className="sidebar-bottom">
           <button className="guide-link" onClick={() => onNavigate("guide")}>
             <Icon name="book" size={17} /> Guia de análise <Icon name="arrowUp" size={13} />
@@ -230,18 +221,18 @@ function Sidebar({
           <ThemeSwitch value={theme} onChange={onTheme} />
           <div className="sidebar-footer">
             <div className="sidebar-footer-row">
-              <span className="sidebar-footer-tag">OLAB / V.03</span>
-              {onOpenPrivacy && (
-                <button
-                  type="button"
-                  onClick={onOpenPrivacy}
-                  className="sidebar-privacy-btn"
-                >
-                  Privacidade & LGPD
-                </button>
-              )}
+              <span className="sidebar-footer-tag">OLAB · V.03</span>
+              <span className="sidebar-footer-motto">Feito para questionar.</span>
             </div>
-            <span className="sidebar-footer-motto">Feito para questionar.</span>
+            {onOpenPrivacy && (
+              <button
+                type="button"
+                onClick={onOpenPrivacy}
+                className="sidebar-privacy-btn"
+              >
+                Privacidade & LGPD
+              </button>
+            )}
           </div>
         </div>
       </aside>
@@ -252,9 +243,11 @@ function Sidebar({
 function ThemeSwitch({
   value,
   onChange,
+  compact,
 }: {
   value: ThemePref;
   onChange: (theme: ThemePref) => void;
+  compact?: boolean;
 }) {
   const options: { value: ThemePref; label: string; icon: IconName }[] = [
     { value: "system", label: "Sistema", icon: "monitor" },
@@ -271,7 +264,12 @@ function ThemeSwitch({
     e.currentTarget.querySelector<HTMLButtonElement>(`[data-value="${next.value}"]`)?.focus();
   };
   return (
-    <div className="theme-switch" role="radiogroup" aria-label="Tema" onKeyDown={keydown}>
+    <div
+      className={`theme-switch ${compact ? "is-compact" : ""}`}
+      role="radiogroup"
+      aria-label="Tema"
+      onKeyDown={keydown}
+    >
       {options.map((o) => (
         <button
           key={o.value}
@@ -284,7 +282,7 @@ function ThemeSwitch({
           className={value === o.value ? "active" : ""}
           onClick={() => onChange(o.value)}
         >
-          <Icon name={o.icon} size={14} />
+          <Icon name={o.icon} size={13} />
           <span aria-hidden="true">{o.label}</span>
         </button>
       ))}

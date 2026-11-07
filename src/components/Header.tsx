@@ -34,7 +34,6 @@ export function Header({
           </div>
         </div>
 
-        {/* Right Actions */}
         <div className="flex items-center space-x-2 sm:space-x-3">
           {/* Bring Your Own Key (BYOK) Status Button */}
           <button
