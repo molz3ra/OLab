@@ -57,6 +57,12 @@ import {
   systemPrefersDark,
   type ThemePref,
 } from "@/lib/theme";
+import { useSession } from "@/lib/auth-client";
+import { getGuestUsage, incrementGuestUsage, type GuestQuota } from "@/lib/trial";
+import { AuthModal } from "./AuthModal";
+import { TrialGateModal } from "./TrialGateModal";
+import { AccountModal } from "./AccountModal";
+import { UserMenu } from "./UserMenu";
 
 type View = "studio" | "report" | "reports" | "personas" | "guide";
 type Dialog = "key" | "persona" | "telemetry" | "clear" | null;
@@ -117,6 +123,10 @@ function Sidebar({
   mobile,
   onClose,
   blocked,
+  session,
+  quota,
+  onOpenAuth,
+  onOpenAccount,
 }: {
   view: View;
   onNavigate: (view: View) => void;
@@ -129,6 +139,10 @@ function Sidebar({
   mobile: boolean;
   onClose: () => void;
   blocked: boolean;
+  session: { user: { id: string; name: string; email: string; image?: string | null } } | null;
+  quota: GuestQuota;
+  onOpenAuth: (mode?: "login" | "signup") => void;
+  onOpenAccount: () => void;
 }) {
   const [compact, setCompact] = useState(() => window.matchMedia("(max-width: 800px)").matches);
   useEffect(() => {
@@ -161,11 +175,13 @@ function Sidebar({
             <Icon name="close" />
           </button>
         </div>
-        <div className="workspace-label">
-          <span className="workspace-icon">W</span>
-          <div>
-            Meu workspace<small>Espaço de experimentação</small>
-          </div>
+        <div className="workspace-user-area" style={{ padding: "0 14px 12px" }}>
+          <UserMenu
+            session={session}
+            quota={quota}
+            onOpenAuth={onOpenAuth}
+            onOpenAccount={onOpenAccount}
+          />
         </div>
         <span className="nav-label">LABORATÓRIO</span>
         <nav className="side-nav" aria-label="Navegação principal">
@@ -382,6 +398,9 @@ function Studio({
   runError,
   onErrorAction,
   onDismissError,
+  session,
+  guestQuota,
+  onOpenAuth,
 }: {
   draft: Draft;
   setDraft: (draft: Draft) => void;
@@ -397,6 +416,9 @@ function Studio({
   runError: RunError | null;
   onErrorAction: (action: NonNullable<RunError["action"]>) => void;
   onDismissError: () => void;
+  session: { user: { id: string; name: string; email: string } } | null;
+  guestQuota: GuestQuota;
+  onOpenAuth: (mode?: "login" | "signup") => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [clipboardError, setClipboardError] = useState("");
@@ -811,6 +833,34 @@ function Studio({
                     )}
                   </span>
                 </p>
+                {/* Guest Quota Warning if Locked */}
+                {!session && guestQuota.isLocked && (
+                  <div
+                    style={{
+                      padding: "12px 14px",
+                      borderRadius: "8px",
+                      border: "1px solid rgba(245, 158, 11, 0.3)",
+                      background: "rgba(245, 158, 11, 0.08)",
+                      marginBottom: "12px",
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: "10px",
+                      fontSize: "12px",
+                      color: "var(--color-text-primary)",
+                    }}
+                  >
+                    <Icon name="lock" size={16} className="text-amber-400 shrink-0 mt-0.5" />
+                    <div>
+                      <strong style={{ display: "block", color: "var(--color-text-primary)", fontWeight: 600, marginBottom: "2px" }}>
+                        Limite de degustação atingido (3/3 análises gratuitas)
+                      </strong>
+                      <span style={{ fontSize: "11px", color: "var(--color-text-secondary)", lineHeight: 1.5, display: "block" }}>
+                        Você utilizou suas 3 análises gratuitas locais. Crie sua conta para desbloquear análises ilimitadas e salvar todo seu acervo na nuvem.
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 <div className="submit-row">
                   <div className="selected-avatars">
                     {draft.selected.slice(0, 4).map((id) => (
@@ -824,8 +874,20 @@ function Studio({
                       <b>Uma oferta melhor.</b>
                     </small>
                   </div>
-                  <button type="submit" className="primary-button">
-                    Iniciar análise <Icon name="arrow" size={17} />
+                  <button
+                    type="submit"
+                    className="primary-button"
+                    style={!session && guestQuota.isLocked ? { background: "var(--color-accent)", opacity: 0.95 } : undefined}
+                  >
+                    {!session && guestQuota.isLocked ? (
+                      <>
+                        <Icon name="lock" size={15} /> Desbloquear com conta gratuita
+                      </>
+                    ) : (
+                      <>
+                        Iniciar análise <Icon name="arrow" size={17} />
+                      </>
+                    )}
                   </button>
                 </div>
                 <div className="submit-footnote">
@@ -835,7 +897,20 @@ function Studio({
                       ? "Enviado só ao Google com a sua chave pessoal."
                       : "Executando com a chave padrão do sistema."}
                   </span>
-                  <span>⌘ / Ctrl + Enter</span>
+                  <span>
+                    {!session ? (
+                      <button
+                        type="button"
+                        onClick={() => onOpenAuth("signup")}
+                        className="inline-link"
+                        style={{ fontSize: "11px" }}
+                      >
+                        Degustação: <b>{guestQuota.used}/3</b> usadas · Criar conta
+                      </button>
+                    ) : (
+                      "⌘ / Ctrl + Enter"
+                    )}
+                  </span>
                 </div>
               </>
             )}
@@ -2734,6 +2809,12 @@ function initialModel(): GeminiModel {
 }
 
 export default function App() {
+  const session = useSession();
+  const [guestQuota, setGuestQuota] = useState<GuestQuota>(() => getGuestUsage());
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<"login" | "signup">("login");
+  const [trialGateOpen, setTrialGateOpen] = useState(false);
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [view, setView] = useState<View>("studio");
   const [dialog, setDialog] = useState<Dialog>(null);
   const [keyNotice, setKeyNotice] = useState("");
@@ -2760,6 +2841,51 @@ export default function App() {
   const runController = useRef<AbortController>(undefined);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const storageWarned = useRef(false);
+  const syncedUserRef = useRef<string | null>(null);
+
+  const openAuth = (mode: "login" | "signup" = "login") => {
+    setAuthModalMode(mode);
+    setAuthModalOpen(true);
+  };
+
+  // Sincronização automática na nuvem ao logar
+  useEffect(() => {
+    const user = session?.data?.user;
+    if (!user || syncedUserRef.current === user.id) return;
+    syncedUserRef.current = user.id;
+
+    fetch("/api/user/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reports,
+        personas: personas.filter((p) => p.id.startsWith("custom-")),
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.allReports && Array.isArray(data.allReports) && data.allReports.length > 0) {
+          setReports((current) => {
+            const map = new Map<string, Report>();
+            for (const r of [...data.allReports, ...current]) {
+              map.set(r.id, r);
+            }
+            return Array.from(map.values());
+          });
+        }
+        if (data.allPersonas && Array.isArray(data.allPersonas) && data.allPersonas.length > 0) {
+          setPersonas((current) => {
+            const map = new Map<string, Persona>();
+            for (const p of [...current, ...data.allPersonas]) {
+              map.set(p.id, p);
+            }
+            return Array.from(map.values());
+          });
+        }
+        notify(`Bem-vindo, ${user.name}! Workspace sincronizado.`);
+      })
+      .catch((err) => console.error("[Sync] Erro na sincronização inicial:", err));
+  }, [session?.data?.user]);
   const notify = (message: string) => {
     clearTimeout(toastTimer.current);
     setToast(message);
@@ -2857,6 +2983,13 @@ export default function App() {
         ? { baselineId: pendingBaseline.id, iteration: pendingBaseline.iteration }
         : undefined);
     if (running || validateDraft(snapshot)) return;
+
+    // Trial Gate check for unauthenticated visitors
+    if (!session?.data?.user && guestQuota.isLocked) {
+      setTrialGateOpen(true);
+      return;
+    }
+
     const controller = new AbortController();
     runController.current = controller;
     const panel = personas.filter((p) => snapshot.selected.includes(p.id));
@@ -2898,6 +3031,18 @@ export default function App() {
       setReports((old) => [report, ...old]);
       setRunning(false);
       openReport(report, report.baselineId);
+
+      // Quota tracking & cloud sync
+      if (!session?.data?.user) {
+        const nextQuota = incrementGuestUsage();
+        setGuestQuota(nextQuota);
+      } else {
+        fetch("/api/user/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reports: [report] }),
+        }).catch((err) => console.error("[Sync] Erro ao sincronizar:", err));
+      }
     } catch (error) {
       if (controller.signal.aborted || isAbort(error)) return;
       setRunning(false);
@@ -3071,9 +3216,13 @@ export default function App() {
         onTheme={changeTheme}
         mobile={mobileNav}
         onClose={() => setMobileNav(false)}
-        blocked={!!dialog}
+        blocked={!!dialog || authModalOpen || trialGateOpen || accountModalOpen}
+        session={session?.data ?? null}
+        quota={guestQuota}
+        onOpenAuth={openAuth}
+        onOpenAccount={() => setAccountModalOpen(true)}
       />
-      <div className="workspace-main" inert={!!dialog || mobileNav}>
+      <div className="workspace-main" inert={!!dialog || mobileNav || authModalOpen || trialGateOpen || accountModalOpen}>
         <header className="topbar">
           <div className="breadcrumbs">
             <button
@@ -3094,6 +3243,26 @@ export default function App() {
             <strong>{labels[view]}</strong>
           </div>
           <div className="topbar-actions">
+            {!session?.data?.user ? (
+              <button
+                type="button"
+                onClick={() => openAuth("login")}
+                className="primary-button"
+                style={{ padding: "5px 12px", fontSize: "11px", height: "auto" }}
+              >
+                <Icon name="user" size={13} />
+                <span>Entrar</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAccountModalOpen(true)}
+                className="icon-button"
+                title="Minha Conta"
+              >
+                <Icon name="userCheck" size={16} />
+              </button>
+            )}
             <button
               className={`demo-status ${apiKey ? "is-connected" : "is-server"}`}
               onClick={() => openKey()}
@@ -3147,6 +3316,9 @@ export default function App() {
               runError={runError}
               onErrorAction={errorAction}
               onDismissError={() => setRunError(null)}
+              session={session?.data ?? null}
+              guestQuota={guestQuota}
+              onOpenAuth={openAuth}
             />
           )}
           {view === "report" && activeReport && (
@@ -3254,6 +3426,34 @@ export default function App() {
             <Icon name="close" size={14} />
           </button>
         </div>
+      )}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        initialMode={authModalMode}
+        onSuccess={() => {
+          setAuthModalOpen(false);
+          setTrialGateOpen(false);
+        }}
+      />
+      <TrialGateModal
+        isOpen={trialGateOpen}
+        onClose={() => setTrialGateOpen(false)}
+        onOpenAuth={(mode) => {
+          setTrialGateOpen(false);
+          setAuthModalMode(mode || "signup");
+          setAuthModalOpen(true);
+        }}
+      />
+      {session?.data?.user && (
+        <AccountModal
+          isOpen={accountModalOpen}
+          onClose={() => setAccountModalOpen(false)}
+          user={session.data.user}
+          reportsCount={reports.length}
+          personasCount={personas.length}
+          onExportBackup={exportBackup}
+        />
       )}
     </div>
   );
