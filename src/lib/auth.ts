@@ -16,13 +16,33 @@ const getAuthSecret = (): string => {
   return "olab_development_consistent_secret_key_32_bytes_long_ok";
 };
 
+// Resolução dinâmica de Base URL para suportar Vercel, produção e desenvolvimento local
+const resolveBaseUrl = (): string => {
+  if (process.env.BETTER_AUTH_URL && process.env.BETTER_AUTH_URL.trim()) {
+    return process.env.BETTER_AUTH_URL.trim();
+  }
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL.trim();
+  }
+  return "http://localhost:3000";
+};
+
 export const auth = betterAuth({
   database: getDatabase(),
-  baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
+  baseURL: resolveBaseUrl(),
   trustedOrigins: [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     process.env.BETTER_AUTH_URL || "",
+    process.env.NEXT_PUBLIC_APP_URL || "",
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "",
+    process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "",
   ].filter(Boolean),
   secret: getAuthSecret(),
   emailAndPassword: {

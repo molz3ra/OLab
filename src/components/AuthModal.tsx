@@ -57,6 +57,8 @@ export function AuthModal({
             errorMsg = "Este e-mail já está cadastrado! Clique na aba 'Entrar na conta' acima para fazer login.";
           } else if (raw.includes("password") || raw.includes("senha")) {
             errorMsg = "A senha fornecida não cumpre os requisitos de segurança.";
+          } else if (res.error.status === 500) {
+            errorMsg = "Falha no servidor ao salvar a conta. O banco de dados do servidor pode estar em inicialização ou sem permissão de escrita.";
           } else if (res.error.message) {
             errorMsg = res.error.message;
           }

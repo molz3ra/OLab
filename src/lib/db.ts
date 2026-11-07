@@ -1,8 +1,26 @@
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
+import os from "node:os";
 import type { Report, Persona } from "./lab";
 
-const DB_PATH = path.resolve(process.cwd(), "olab.db");
+// Detecção de ambientes Serverless (Vercel, AWS Lambda, Netlify)
+// Nesses ambientes, o sistema de arquivos raiz é somente-leitura (read-only).
+// Portanto, arquivos SQLite locais DEVEM ser gravados em os.tmpdir() (/tmp).
+const isServerless = Boolean(
+  process.env.VERCEL ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.NETLIFY ||
+  process.env.LAMBDA_TASK_ROOT
+);
+
+function resolveDatabasePath(): string {
+  if (isServerless) {
+    return path.resolve(os.tmpdir(), "olab.db");
+  }
+  return path.resolve(process.cwd(), "olab.db");
+}
+
+const DB_PATH = resolveDatabasePath();
 
 let _db: DatabaseSync | null = null;
 
@@ -10,8 +28,12 @@ export function getDatabase(): DatabaseSync {
   if (!_db) {
     _db = new DatabaseSync(DB_PATH);
     try {
-      _db.exec("PRAGMA journal_mode = WAL;");
       _db.exec("PRAGMA busy_timeout = 5000;");
+      try {
+        _db.exec("PRAGMA journal_mode = WAL;");
+      } catch {
+        _db.exec("PRAGMA journal_mode = DELETE;");
+      }
       initTables(_db);
     } catch (err) {
       // Se outro processo/worker já inicializou, continue
