@@ -228,29 +228,20 @@ function Sidebar({
             </p>
           </button>
           <ThemeSwitch value={theme} onChange={onTheme} />
-          <div className="sidebar-version">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", marginBottom: "4px" }}>
-              <span>OLAB / V.03</span>
+          <div className="sidebar-footer">
+            <div className="sidebar-footer-row">
+              <span className="sidebar-footer-tag">OLAB / V.03</span>
               {onOpenPrivacy && (
                 <button
                   type="button"
                   onClick={onOpenPrivacy}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    padding: 0,
-                    color: "var(--color-text-tertiary)",
-                    textDecoration: "underline",
-                    cursor: "pointer",
-                    fontSize: "11px",
-                  }}
-                  className="hover:text-[var(--color-text-primary)]"
+                  className="sidebar-privacy-btn"
                 >
                   Privacidade & LGPD
                 </button>
               )}
             </div>
-            <span>Feito para questionar.</span>
+            <span className="sidebar-footer-motto">Feito para questionar.</span>
           </div>
         </div>
       </aside>
