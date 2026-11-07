@@ -1,6 +1,21 @@
 import { betterAuth } from "better-auth";
+import { LibsqlDialect } from "@libsql/kysely-libsql";
 import { getDatabase } from "./db";
 import crypto from "node:crypto";
+
+// Resolução de banco de dados: Turso Cloud quando disponível, SQLite local como fallback
+const resolveDatabase = () => {
+  if (process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN) {
+    return {
+      dialect: new LibsqlDialect({
+        url: process.env.TURSO_DATABASE_URL.trim(),
+        authToken: process.env.TURSO_AUTH_TOKEN.trim(),
+      }),
+      type: "sqlite" as const,
+    };
+  }
+  return getDatabase();
+};
 
 // Resolução de segredo criptográfico: consistente em desenvolvimento, rigoroso em produção
 const getAuthSecret = (): string => {
@@ -34,7 +49,7 @@ const resolveBaseUrl = (): string => {
 };
 
 export const auth = betterAuth({
-  database: getDatabase(),
+  database: resolveDatabase(),
   baseURL: resolveBaseUrl(),
   trustedOrigins: [
     "http://localhost:3000",

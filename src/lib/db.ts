@@ -1,11 +1,26 @@
 import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import os from "node:os";
+import { createClient, type Client } from "@libsql/client";
 import type { Report, Persona } from "./lab";
 
-// Detecção de ambientes Serverless (Vercel, AWS Lambda, Netlify)
-// Nesses ambientes, o sistema de arquivos raiz é somente-leitura (read-only).
-// Portanto, arquivos SQLite locais DEVEM ser gravados em os.tmpdir() (/tmp).
+// 1. Cliente Turso Cloud (para produção na Vercel e persistência em nuvem)
+let _tursoClient: Client | null = null;
+
+export function getTursoClient(): Client | null {
+  if (process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN) {
+    if (!_tursoClient) {
+      _tursoClient = createClient({
+        url: process.env.TURSO_DATABASE_URL.trim(),
+        authToken: process.env.TURSO_AUTH_TOKEN.trim(),
+      });
+    }
+    return _tursoClient;
+  }
+  return null;
+}
+
+// 2. Fallback SQLite local (para desenvolvimento offline quando Turso não estiver configurado)
 const isServerless = Boolean(
   process.env.VERCEL ||
   process.env.AWS_LAMBDA_FUNCTION_NAME ||
@@ -20,13 +35,11 @@ function resolveDatabasePath(): string {
   return path.resolve(process.cwd(), "olab.db");
 }
 
-const DB_PATH = resolveDatabasePath();
-
 let _db: DatabaseSync | null = null;
 
 export function getDatabase(): DatabaseSync {
   if (!_db) {
-    _db = new DatabaseSync(DB_PATH);
+    _db = new DatabaseSync(resolveDatabasePath());
     try {
       _db.exec("PRAGMA busy_timeout = 5000;");
       try {
@@ -36,7 +49,6 @@ export function getDatabase(): DatabaseSync {
       }
       initTables(_db);
     } catch (err) {
-      // Se outro processo/worker já inicializou, continue
       console.warn("[db.ts] Aviso durante inicialização:", err);
     }
   }
@@ -133,15 +145,46 @@ function initTables(db: DatabaseSync) {
   `);
 }
 
-// Helper methods for OLAB data persistence per User
-export function getUserReports(userId: string): Report[] {
+// Métodos de persistência de dados do usuário (Compatíveis com Turso Cloud e SQLite local)
+export async function getUserReports(userId: string): Promise<Report[]> {
+  const turso = getTursoClient();
+  if (turso) {
+    const res = await turso.execute({
+      sql: "SELECT dataJson FROM user_reports WHERE userId = ? ORDER BY createdAt DESC LIMIT 50",
+      args: [userId],
+    });
+    return res.rows.map((r) => JSON.parse(r.dataJson as string) as Report);
+  }
+
   const db = getDatabase();
   const stmt = db.prepare("SELECT dataJson FROM user_reports WHERE userId = ? ORDER BY createdAt DESC LIMIT 50");
   const rows = stmt.all(userId) as { dataJson: string }[];
   return rows.map((r) => JSON.parse(r.dataJson) as Report);
 }
 
-export function saveUserReport(userId: string, report: Report): void {
+export async function saveUserReport(userId: string, report: Report): Promise<void> {
+  const turso = getTursoClient();
+  const createdAt = new Date(report.createdAt).getTime() || Date.now();
+  const dataJson = JSON.stringify(report);
+
+  if (turso) {
+    await turso.execute({
+      sql: `
+        INSERT INTO user_reports (id, userId, target, sourceType, summary, score, dataJson, createdAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          target = excluded.target,
+          sourceType = excluded.sourceType,
+          summary = excluded.summary,
+          score = excluded.score,
+          dataJson = excluded.dataJson,
+          createdAt = excluded.createdAt
+      `,
+      args: [report.id, userId, report.target, report.sourceType, report.summary, report.score, dataJson, createdAt],
+    });
+    return;
+  }
+
   const db = getDatabase();
   const stmt = db.prepare(`
     INSERT INTO user_reports (id, userId, target, sourceType, summary, score, dataJson, createdAt)
@@ -154,25 +197,40 @@ export function saveUserReport(userId: string, report: Report): void {
       dataJson = excluded.dataJson,
       createdAt = excluded.createdAt
   `);
-  stmt.run(
-    report.id,
-    userId,
-    report.target,
-    report.sourceType,
-    report.summary,
-    report.score,
-    JSON.stringify(report),
-    new Date(report.createdAt).getTime() || Date.now()
-  );
+  stmt.run(report.id, userId, report.target, report.sourceType, report.summary, report.score, dataJson, createdAt);
 }
 
-export function deleteUserReport(userId: string, reportId: string): void {
+export async function deleteUserReport(userId: string, reportId: string): Promise<void> {
+  const turso = getTursoClient();
+  if (turso) {
+    await turso.execute({
+      sql: "DELETE FROM user_reports WHERE id = ? AND userId = ?",
+      args: [reportId, userId],
+    });
+    return;
+  }
   const db = getDatabase();
   const stmt = db.prepare("DELETE FROM user_reports WHERE id = ? AND userId = ?");
   stmt.run(reportId, userId);
 }
 
-export function getUserPersonas(userId: string): Persona[] {
+export async function getUserPersonas(userId: string): Promise<Persona[]> {
+  const turso = getTursoClient();
+  if (turso) {
+    const res = await turso.execute({
+      sql: "SELECT id, name, role, focus, skepticism, icon FROM user_personas WHERE userId = ? ORDER BY createdAt ASC",
+      args: [userId],
+    });
+    return res.rows.map((r) => ({
+      id: r.id as string,
+      name: r.name as string,
+      role: r.role as string,
+      focus: r.focus as string,
+      skepticism: Number(r.skepticism),
+      icon: r.icon as Persona["icon"],
+    }));
+  }
+
   const db = getDatabase();
   const stmt = db.prepare("SELECT * FROM user_personas WHERE userId = ? ORDER BY createdAt ASC");
   const rows = stmt.all(userId) as {
@@ -193,7 +251,27 @@ export function getUserPersonas(userId: string): Persona[] {
   }));
 }
 
-export function saveUserPersona(userId: string, persona: Persona): void {
+export async function saveUserPersona(userId: string, persona: Persona): Promise<void> {
+  const turso = getTursoClient();
+  const createdAt = Date.now();
+
+  if (turso) {
+    await turso.execute({
+      sql: `
+        INSERT INTO user_personas (id, userId, name, role, focus, skepticism, icon, isDefault, createdAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          role = excluded.role,
+          focus = excluded.focus,
+          skepticism = excluded.skepticism,
+          icon = excluded.icon
+      `,
+      args: [persona.id, userId, persona.name, persona.role, persona.focus, persona.skepticism, persona.icon, 0, createdAt],
+    });
+    return;
+  }
+
   const db = getDatabase();
   const stmt = db.prepare(`
     INSERT INTO user_personas (id, userId, name, role, focus, skepticism, icon, isDefault, createdAt)
@@ -214,17 +292,33 @@ export function saveUserPersona(userId: string, persona: Persona): void {
     persona.skepticism,
     persona.icon,
     0,
-    Date.now()
+    createdAt
   );
 }
 
-export function deleteUserPersona(userId: string, personaId: string): void {
+export async function deleteUserPersona(userId: string, personaId: string): Promise<void> {
+  const turso = getTursoClient();
+  if (turso) {
+    await turso.execute({
+      sql: "DELETE FROM user_personas WHERE id = ? AND userId = ?",
+      args: [personaId, userId],
+    });
+    return;
+  }
   const db = getDatabase();
   const stmt = db.prepare("DELETE FROM user_personas WHERE id = ? AND userId = ?");
   stmt.run(personaId, userId);
 }
 
-export function resetUserPersonas(userId: string): void {
+export async function resetUserPersonas(userId: string): Promise<void> {
+  const turso = getTursoClient();
+  if (turso) {
+    await turso.execute({
+      sql: "DELETE FROM user_personas WHERE userId = ?",
+      args: [userId],
+    });
+    return;
+  }
   const db = getDatabase();
   const stmt = db.prepare("DELETE FROM user_personas WHERE userId = ?");
   stmt.run(userId);

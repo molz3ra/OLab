@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
       for (const report of body.reports) {
         if (report && report.id && report.summary) {
           if (JSON.stringify(report).length <= MAX_ITEM_SIZE_BYTES) {
-            saveUserReport(userId, report);
+            await saveUserReport(userId, report);
             syncedReports++;
           }
         }
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
       for (const persona of body.personas) {
         if (persona && persona.id && persona.name) {
           if (JSON.stringify(persona).length <= MAX_ITEM_SIZE_BYTES) {
-            saveUserPersona(userId, persona);
+            await saveUserPersona(userId, persona);
             syncedPersonas++;
           }
         }
@@ -64,8 +64,8 @@ export async function POST(req: NextRequest) {
       success: true,
       syncedReports,
       syncedPersonas,
-      allReports: getUserReports(userId),
-      allPersonas: getUserPersonas(userId),
+      allReports: await getUserReports(userId),
+      allPersonas: await getUserPersonas(userId),
     });
   } catch (error) {
     console.error("[/api/user/sync] Erro ao sincronizar dados:", error);
@@ -84,8 +84,8 @@ export async function GET(req: NextRequest) {
     }
 
     const userId = session.user.id;
-    const reports = getUserReports(userId);
-    const personas = getUserPersonas(userId);
+    const reports = await getUserReports(userId);
+    const personas = await getUserPersonas(userId);
 
     return NextResponse.json({
       reports,
