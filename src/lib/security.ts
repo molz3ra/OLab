@@ -179,3 +179,4 @@ export function isSafePublicUrl(urlInput: string): UrlSafetyCheck {
 
   return { safe: true, url: parsed };
 }
+
