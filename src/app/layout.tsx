@@ -13,16 +13,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'ObjectionLab — Simulador de Focus Group Sintético & Auditor de CRO',
+  title: 'OLAB — Laboratório de Objeções & Fricção de Conversão',
   description:
-    'Audite a eficácia e objeções da sua Landing Page ou Anúncio com agentes sintéticos paralelos antes de gastar dinheiro com tráfego pago.',
+    'Audite a eficácia e objeções da sua Landing Page ou Copy com uma banca sintética antes de alocar capital em tráfego pago.',
   keywords: [
-    'Focus Group Sintético',
+    'ObjectionLab',
     'CRO',
     'Copywriting',
-    'Landing Page Auditor',
-    'Inteligência Artificial',
-    'Vercel AI SDK',
+    'Auditoria de Conversão',
+    'Simulação de Objeções',
+    'Focus Group Sintético',
   ],
 };
 
@@ -36,7 +36,7 @@ export default function RootLayout({
       lang="pt-BR"
       className={`${geistSans.variable} ${geistMono.variable} dark antialiased`}
     >
-      <body className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans">
+      <body className="min-h-screen bg-[#090b10] text-[#f3f4f8] flex flex-col font-sans">
         {children}
       </body>
     </html>

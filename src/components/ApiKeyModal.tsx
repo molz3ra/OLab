@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Key, Eye, EyeOff, ShieldCheck, ExternalLink, X, Check, Trash2, AlertCircle, Sparkles } from 'lucide-react';
+import { Key, Eye, EyeOff, ShieldCheck, ExternalLink, X, Check, Trash2 } from 'lucide-react';
 
 interface ApiKeyModalProps {
   isOpen: boolean;
@@ -20,6 +20,17 @@ export function ApiKeyModal({ isOpen, onClose, apiKey, onSaveApiKey }: ApiKeyMod
     setInputKey(apiKey);
   }, [apiKey, isOpen]);
 
+  // Fechar com tecla Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     onSaveApiKey(inputKey.trim());
@@ -27,7 +38,7 @@ export function ApiKeyModal({ isOpen, onClose, apiKey, onSaveApiKey }: ApiKeyMod
     setTimeout(() => {
       setSavedSuccess(false);
       onClose();
-    }, 1000);
+    }, 800);
   };
 
   const handleClear = () => {
@@ -46,58 +57,55 @@ export function ApiKeyModal({ isOpen, onClose, apiKey, onSaveApiKey }: ApiKeyMod
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm"
+            className="fixed inset-0 z-50 bg-[#090b10]/80 backdrop-blur-sm"
           />
 
           {/* Modal Container */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
             <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 10 }}
+              initial={{ scale: 0.97, opacity: 0, y: 8 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 10 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-              className="relative w-full max-w-lg bg-[#0b0d13] border border-white/[0.08] shadow-2xl rounded-2xl overflow-hidden font-sans"
+              exit={{ scale: 0.97, opacity: 0, y: 8 }}
+              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+              className="relative w-full max-w-lg bg-[#11141d] border border-[#222838] shadow-2xl rounded-xl overflow-hidden font-sans"
             >
-              {/* Top Accent Line */}
-              <div className="h-1 w-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-500" />
-
               {/* Header */}
-              <div className="p-6 border-b border-white/[0.06] flex items-center justify-between">
+              <div className="p-5 border-b border-[#222838] flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                    <Key className="w-5 h-5" />
+                  <div className="w-8 h-8 rounded-lg bg-[#181c28] border border-[#2b3246] flex items-center justify-center text-[#10b981]">
+                    <Key className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="text-base font-semibold text-white tracking-tight">
+                    <h3 className="text-sm font-semibold text-[#f3f4f8] tracking-tight">
                       Configurar Google Gemini API Key
                     </h3>
-                    <p className="text-xs text-zinc-400">
-                      Análises de CRO e comitê sintético em tempo real com LLM
+                    <p className="text-xs text-[#8c93a8]">
+                      Utilize sua própria cota gratuita para auditorias ilimitadas
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={onClose}
-                  className="w-8 h-8 rounded-lg bg-white/[0.03] border border-white/[0.08] text-zinc-400 hover:text-white flex items-center justify-center transition-colors tactile-btn"
+                  className="w-7 h-7 rounded-md bg-[#181c28] border border-[#222838] text-[#8c93a8] hover:text-[#f3f4f8] flex items-center justify-center transition-colors tactile-btn"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
               {/* Form Content */}
-              <form onSubmit={handleSave} className="p-6 space-y-5">
+              <form onSubmit={handleSave} className="p-5 space-y-4">
                 {/* Security info card */}
-                <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-start gap-3">
-                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                  <div className="text-xs text-zinc-400 leading-relaxed">
-                    <strong className="text-zinc-200">Privacidade Local (BYOK):</strong> Sua chave é armazenada com segurança exclusivamente no <span className="font-mono text-zinc-300">localStorage</span> do seu navegador. Ela nunca é gravada em bancos de dados e segue apenas na requisição para gerar a auditoria.
+                <div className="p-3.5 rounded-lg bg-[#181c28] border border-[#222838] flex items-start gap-3">
+                  <ShieldCheck className="w-4 h-4 text-[#10b981] shrink-0 mt-0.5" />
+                  <div className="text-xs text-[#8c93a8] leading-relaxed">
+                    <strong className="text-[#f3f4f8]">Armazenamento 100% Local:</strong> Sua chave fica salva exclusivamente no seu navegador (<span className="font-mono text-[#f3f4f8]">localStorage</span>). Ela nunca é registrada em bancos de dados externos.
                   </div>
                 </div>
 
                 {/* Input field */}
-                <div className="space-y-2">
-                  <label className="block text-xs font-mono font-medium text-zinc-300">
-                    Sua API Key do Google AI Studio:
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-mono text-[#8c93a8]">
+                    Chave de API (Google AI Studio):
                   </label>
                   <div className="relative">
                     <input
@@ -105,71 +113,66 @@ export function ApiKeyModal({ isOpen, onClose, apiKey, onSaveApiKey }: ApiKeyMod
                       value={inputKey}
                       onChange={(e) => setInputKey(e.target.value)}
                       placeholder="AIzaSy..."
-                      className="w-full bg-[#12141c] border border-white/[0.1] rounded-xl px-4 py-3 text-sm font-mono text-white placeholder-zinc-600 focus:outline-none focus:border-emerald-500/60 focus:ring-1 focus:ring-emerald-500/40 pr-11 transition-all"
+                      className="w-full bg-[#090b10] border border-[#222838] focus:border-[#3b435c] rounded-lg px-3 py-2 text-xs font-mono text-[#f3f4f8] placeholder-[#5a6275] focus:outline-none transition-colors pr-10"
                     />
                     <button
                       type="button"
                       onClick={() => setShowKey(!showKey)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white p-1 transition-colors"
-                      aria-label={showKey ? 'Ocultar chave' : 'Mostrar chave'}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8c93a8] hover:text-[#f3f4f8] transition-colors"
                     >
                       {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
 
-                {/* Free key helper */}
-                <div className="flex items-center justify-between text-xs pt-1">
-                  <span className="text-zinc-500">Não tem uma chave ainda?</span>
+                {/* Helper Link */}
+                <div className="pt-1">
                   <a
                     href="https://aistudio.google.com/app/apikey"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-medium underline underline-offset-4"
+                    className="inline-flex items-center gap-1.5 text-xs text-[#8c93a8] hover:text-[#f3f4f8] transition-colors"
                   >
-                    <span>Obter chave gratuita no Google AI Studio</span>
+                    <span>Como obter uma chave gratuita no Google AI Studio</span>
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="pt-3 flex items-center justify-between gap-3 border-t border-white/[0.06]">
+                {/* Actions */}
+                <div className="pt-3 border-t border-[#222838] flex items-center justify-between">
                   {apiKey ? (
                     <button
                       type="button"
                       onClick={handleClear}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 hover:bg-rose-500/20 text-xs font-medium transition-all tactile-btn"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-mono text-[#f43f5e] hover:bg-[#f43f5e]/10 transition-colors tactile-btn"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       <span>Remover Chave</span>
                     </button>
                   ) : (
-                    <span className="text-[11px] text-zinc-500 font-mono">Modo: Sem chave salva</span>
+                    <div />
                   )}
 
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center space-x-2">
                     <button
                       type="button"
                       onClick={onClose}
-                      className="px-4 py-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-zinc-300 hover:text-white hover:bg-white/[0.06] text-xs font-medium transition-all tactile-btn"
+                      className="px-3.5 py-1.5 rounded-md border border-[#222838] text-xs text-[#8c93a8] hover:text-[#f3f4f8] hover:bg-[#181c28] transition-colors tactile-btn"
                     >
                       Cancelar
                     </button>
                     <button
                       type="submit"
                       disabled={!inputKey.trim()}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:hover:bg-emerald-500 text-zinc-950 text-xs font-semibold shadow-lg shadow-emerald-500/20 transition-all tactile-btn cursor-pointer disabled:cursor-not-allowed"
+                      className="flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-[#10b981] text-[#090b10] font-semibold text-xs hover:bg-[#10b981]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all tactile-btn"
                     >
                       {savedSuccess ? (
                         <>
-                          <Check className="w-3.5 h-3.5" />
-                          <span>Chave Salva!</span>
+                          <Check className="w-3.5 h-3.5 text-[#090b10]" />
+                          <span>Salvo!</span>
                         </>
                       ) : (
-                        <>
-                          <Sparkles className="w-3.5 h-3.5" />
-                          <span>Salvar e Ativar IA</span>
-                        </>
+                        <span>Salvar Chave</span>
                       )}
                     </button>
                   </div>
@@ -182,4 +185,3 @@ export function ApiKeyModal({ isOpen, onClose, apiKey, onSaveApiKey }: ApiKeyMod
     </AnimatePresence>
   );
 }
-

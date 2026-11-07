@@ -25,7 +25,8 @@ export default function Home() {
   // Carrega chave salva do usuário do localStorage
   useEffect(() => {
     try {
-      const savedKey = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('gemini_api_key') || '';
+      const savedKey =
+        localStorage.getItem(STORAGE_KEY) || localStorage.getItem('gemini_api_key') || '';
       if (savedKey) {
         setApiKey(savedKey);
       }
@@ -96,12 +97,11 @@ export default function Home() {
     }
   };
 
-  // Carregamento instantâneo via Zero-Click Preset (0.2s)
+  // Carregamento instantâneo via Zero-Click Preset (0.15s)
   const handleSelectPreset = (preset: PresetItem) => {
     setErrorMessage(null);
     setIsLoading(true);
 
-    // Micro-delay para sensação de transição suave (150ms)
     setTimeout(() => {
       setActiveReport(preset.data.report);
       setActiveTelemetry(preset.data.telemetry);
@@ -110,7 +110,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col font-sans selection:bg-emerald-500/30 selection:text-white">
+    <div className="min-h-screen bg-[#090b10] text-[#f3f4f8] flex flex-col font-sans selection:bg-[#10b981]/25 selection:text-white">
       {/* Navigation Header */}
       <Header
         onOpenTelemetry={() => setIsTelemetryOpen(true)}
@@ -120,7 +120,7 @@ export default function Home() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 pb-20">
+      <main className="flex-1 pb-16">
         {/* Hero & Input Section */}
         <HeroInput
           onAnalyze={handleAnalyze}
@@ -133,23 +133,23 @@ export default function Home() {
         {/* Error Alert Banner */}
         {errorMessage && (
           <div className="max-w-3xl mx-auto px-4 my-4">
-            <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center justify-between">
+            <div className="p-4 rounded-xl bg-[#f43f5e]/10 border border-[#f43f5e]/30 text-[#f43f5e] text-xs flex items-center justify-between font-mono">
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-rose-400">Atenção:</span>
+                <span className="font-semibold">Erro:</span>
                 <span>{errorMessage}</span>
               </div>
               <div className="flex items-center gap-3">
                 {!apiKey && (
                   <button
                     onClick={() => setIsApiKeyModalOpen(true)}
-                    className="underline text-emerald-400 hover:text-emerald-300 font-mono text-[11px]"
+                    className="underline text-[#10b981] hover:text-[#10b981]/80 text-[11px]"
                   >
                     Inserir Chave Gemini
                   </button>
                 )}
                 <button
                   onClick={() => setErrorMessage(null)}
-                  className="text-rose-400 hover:text-white font-mono text-sm ml-2 cursor-pointer"
+                  className="text-[#f43f5e] hover:text-[#f3f4f8] text-sm ml-2 cursor-pointer"
                 >
                   ✕
                 </button>
@@ -173,9 +173,9 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-zinc-800/80 py-6 text-center text-xs text-zinc-500 font-mono">
+      <footer className="border-t border-[#222838] py-6 text-center text-xs text-[#8c93a8] font-mono">
         <p>
-          ObjectionLab • Simulador de Focus Group Sintético com Vercel AI SDK &amp; Zod
+          OLAB • Laboratório de Fricção &amp; Objeções de Conversão • Next.js &amp; Google Gemini AI
         </p>
       </footer>
 
