@@ -1,10 +1,25 @@
 import { betterAuth } from "better-auth";
 import { getDatabase } from "./db";
+import crypto from "node:crypto";
+
+// Resolução de segredo criptográfico com fallback randômico efêmero em memória
+const getAuthSecret = (): string => {
+  if (process.env.BETTER_AUTH_SECRET && process.env.BETTER_AUTH_SECRET.trim().length >= 16) {
+    return process.env.BETTER_AUTH_SECRET.trim();
+  }
+  if (process.env.NODE_ENV === "production") {
+    console.warn(
+      "[SECURITY WARNING] BETTER_AUTH_SECRET não está definido! Defina uma chave segura nas variáveis de ambiente."
+    );
+  }
+  // Chave criptograficamente forte gerada em tempo de execução
+  return crypto.randomBytes(32).toString("hex");
+};
 
 export const auth = betterAuth({
   database: getDatabase(),
   baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
-  secret: process.env.BETTER_AUTH_SECRET || "olab_secret_key_super_secure_editorial_2026",
+  secret: getAuthSecret(),
   emailAndPassword: {
     enabled: true,
   },
@@ -29,3 +44,4 @@ export const auth = betterAuth({
 });
 
 export type Auth = typeof auth;
+

@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import { isSafePublicUrl } from './security';
 
 export interface ScrapeResult {
   markdown: string;
@@ -35,6 +36,11 @@ function truncateToTokenBudget(text: string, maxChars: number = MAX_CHAR_BUDGET)
  * Fallback semântico com Cheerio para extração direta de landing pages
  */
 async function scrapeWithCheerio(url: string): Promise<{ markdown: string; title?: string }> {
+  const safetyCheck = isSafePublicUrl(url);
+  if (!safetyCheck.safe) {
+    throw new Error(`SSRF Prevention: Requisição para URL bloqueada (${safetyCheck.reason})`);
+  }
+
   const response = await fetch(url, {
     headers: {
       'User-Agent':
@@ -124,6 +130,20 @@ export async function scrapeLandingPage(input: string): Promise<ScrapeResult> {
   }
 
   const url = input.trim();
+
+  // Validação preventiva de segurança contra SSRF
+  const safetyCheck = isSafePublicUrl(url);
+  if (!safetyCheck.safe) {
+    const durationMs = Math.round(performance.now() - startTime);
+    return {
+      markdown: `Bloqueio de Segurança: A URL fornecida não pôde ser consultada. Motivo: ${safetyCheck.reason}`,
+      charCount: 0,
+      estimatedTokens: 0,
+      durationMs,
+      source: 'cheerio',
+      error: safetyCheck.reason || 'URL insegura ou restrita',
+    };
+  }
 
   // Tentativa 1: Jina Reader API (r.jina.ai)
   try {

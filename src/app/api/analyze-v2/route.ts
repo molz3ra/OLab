@@ -2,10 +2,44 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const API = 'https://generativelanguage.googleapis.com/v1beta/models';
 
+const ALLOWED_GEMINI_MODELS = new Set([
+  'gemini-2.5-flash',
+  'gemini-2.5-pro',
+  'gemini-2.0-flash',
+  'gemini-2.0-flash-exp',
+  'gemini-1.5-flash',
+  'gemini-1.5-pro',
+]);
+
 export async function POST(req: NextRequest) {
   try {
     const payload = await req.json();
+
+    if (!payload || typeof payload !== 'object') {
+      return NextResponse.json(
+        { error: 'Corpo da requisição inválido.', code: 'invalid_payload' },
+        { status: 400 }
+      );
+    }
+
     const { body, model = 'gemini-2.0-flash' } = payload;
+
+    if (!body || typeof body !== 'object') {
+      return NextResponse.json(
+        { error: 'Parâmetro body é obrigatório e deve ser um objeto estruturado.', code: 'missing_body' },
+        { status: 400 }
+      );
+    }
+
+    if (typeof model !== 'string' || !ALLOWED_GEMINI_MODELS.has(model)) {
+      return NextResponse.json(
+        {
+          error: `Modelo de IA não suportado ou inválido. Modelos aceitos: ${Array.from(ALLOWED_GEMINI_MODELS).join(', ')}`,
+          code: 'invalid_model',
+        },
+        { status: 400 }
+      );
+    }
 
     // Resolução da chave: cabeçalho do cliente (BYOK) > variáveis de ambiente do servidor
     const headerKey =

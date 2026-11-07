@@ -59,3 +59,4 @@ export function resetGuestUsage(): void {
     // Ignore storage errors
   }
 }
+
