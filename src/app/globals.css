@@ -375,7 +375,8 @@
   color: var(--muted);
   font-size: 12px;
   position: relative;
-  transition: background 0.15s;
+  border-radius: 6px;
+  transition: background 0.2s cubic-bezier(0.16, 1, 0.3, 1), color 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .side-nav button:hover {
   background: var(--hover);
@@ -386,13 +387,22 @@
   color: var(--accent-strong);
   font-weight: 600;
 }
-.side-nav button.active:before {
+.side-nav button:before {
   content: "";
-  height: 15px;
-  width: 2px;
+  height: 0;
+  width: 2.5px;
   background: var(--orange);
   position: absolute;
   left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  border-radius: 0 2px 2px 0;
+  opacity: 0;
+  transition: height 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease;
+}
+.side-nav button.active:before {
+  height: 16px;
+  opacity: 1;
 }
 .side-nav button small {
   font: 10px var(--mono);

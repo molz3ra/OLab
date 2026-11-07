@@ -60,12 +60,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Regra 12: Timeout rígido em APIs externas para evitar que a requisição fique travada indefinidamente
     const response = await fetch(`${API}/${model}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(45000),
     });
 
     const responseText = await response.text();

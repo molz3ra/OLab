@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Globe, AlignLeft, ArrowRight, Plus, Check, Trash2, Sparkles, Key } from 'lucide-react';
 import { PRESET_PERSONAS, PersonaArchetype } from '@/lib/personas';
 import { PRESET_ANALYSES, PresetItem } from '@/lib/presets';
@@ -59,19 +59,6 @@ export function HeroInput({
     skepticismLevel: number;
   } | null>(null);
 
-  // Keyboard shortcut listener (Cmd+Enter / Ctrl+Enter)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-        if (!isLoading && inputValue.trim()) {
-          executeAnalysis();
-        }
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  });
-
   const togglePersona = (id: string) => {
     if (selectedPersonaIds.includes(id)) {
       if (selectedPersonaIds.length > 1) {
@@ -101,6 +88,22 @@ export function HeroInput({
         : undefined,
     });
   };
+
+  const executeAnalysisRef = useRef(executeAnalysis);
+  executeAnalysisRef.current = executeAnalysis;
+
+  // Regra 26: Event listener otimizado para não recriar a cada ciclo de render
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        if (!isLoading && inputValue.trim()) {
+          executeAnalysisRef.current();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLoading, inputValue]);
 
   const wordCount = inputValue.trim() ? inputValue.trim().split(/\s+/).length : 0;
   const charCount = inputValue.length;

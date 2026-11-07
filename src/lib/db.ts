@@ -142,6 +142,9 @@ function initTables(db: DatabaseSync) {
 
     CREATE INDEX IF NOT EXISTS idx_user_reports_userId ON user_reports(userId);
     CREATE INDEX IF NOT EXISTS idx_user_personas_userId ON user_personas(userId);
+    -- Regra 17: Índice composto para ordenação descendente frequente sem custo de sort em memória
+    CREATE INDEX IF NOT EXISTS idx_user_reports_user_created ON user_reports(userId, createdAt DESC);
+    CREATE INDEX IF NOT EXISTS idx_user_personas_user_created ON user_personas(userId, createdAt DESC);
   `);
 }
 

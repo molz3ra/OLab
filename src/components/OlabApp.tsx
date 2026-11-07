@@ -8,6 +8,7 @@ import {
   type ReactNode,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Icon, type IconName } from "./Icon";
 import {
   EMPTY_DRAFT,
@@ -57,13 +58,16 @@ import {
   systemPrefersDark,
   type ThemePref,
 } from "@/lib/theme";
+import dynamic from "next/dynamic";
 import { useSession } from "@/lib/auth-client";
 import { getGuestUsage, incrementGuestUsage, type GuestQuota } from "@/lib/trial";
-import { AuthModal } from "./AuthModal";
-import { TrialGateModal } from "./TrialGateModal";
-import { AccountModal } from "./AccountModal";
 import { UserMenu } from "./UserMenu";
-import { PrivacyPolicyModal } from "./PrivacyPolicyModal";
+
+// Regra 22: Code splitting e carregamento dinâmico sob demanda para reduzir o bundle inicial
+const AuthModal = dynamic(() => import("./AuthModal").then((m) => m.AuthModal), { ssr: false });
+const TrialGateModal = dynamic(() => import("./TrialGateModal").then((m) => m.TrialGateModal), { ssr: false });
+const AccountModal = dynamic(() => import("./AccountModal").then((m) => m.AccountModal), { ssr: false });
+const PrivacyPolicyModal = dynamic(() => import("./PrivacyPolicyModal").then((m) => m.PrivacyPolicyModal), { ssr: false });
 
 type View = "studio" | "report" | "reports" | "personas" | "guide";
 type Dialog = "key" | "persona" | "telemetry" | "clear" | null;
@@ -480,6 +484,10 @@ function Studio({
     setError(message);
     if (!message) onRun();
   };
+  const submitRef = useRef(submit);
+  submitRef.current = submit;
+
+  // Regra 26: Prevenção de re-adicionar listener a cada digitação no draft
   useEffect(() => {
     const keydown = (e: KeyboardEvent) => {
       if (
@@ -489,12 +497,12 @@ function Studio({
         !document.querySelector('[role="dialog"]')
       ) {
         e.preventDefault();
-        submit();
+        submitRef.current();
       }
     };
     window.addEventListener("keydown", keydown);
     return () => window.removeEventListener("keydown", keydown);
-  });
+  }, [running]);
   useEffect(() => {
     if (!running) {
       setElapsed(0);
@@ -3354,72 +3362,86 @@ export default function App() {
           className={`workspace-content ${view === "report" ? "report-content" : ""}`}
           id="main-content"
         >
-          {view === "studio" && (
-            <Studio
-              draft={draft}
-              setDraft={setDraft}
-              personas={personas}
-              onRun={() => void run()}
-              onPreset={preset}
-              onCustom={() => {
-                setEditingPersona(null);
-                setDialog("persona");
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={view === "report" && activeReport ? `report-${activeReport.id}` : view}
+              initial={{ opacity: 0, y: 7 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{
+                duration: 0.18,
+                ease: [0.16, 1, 0.3, 1],
               }}
-              running={running}
-              onCancel={cancel}
-              hasKey={!!apiKey}
-              onKey={() => openKey()}
-              phase={phase}
-              runError={runError}
-              onErrorAction={errorAction}
-              onDismissError={() => setRunError(null)}
-              session={session?.data ?? null}
-              guestQuota={guestQuota}
-              onOpenAuth={openAuth}
-              onOpenPrivacy={() => setPrivacyModalOpen(true)}
-            />
-          )}
-          {view === "report" && activeReport && (
-            <ReportView
-              key={`${activeReport.id}-${compareBaselineId || ""}`}
-              report={activeReport}
-              reports={allKnownReports}
-              initialBaselineId={compareBaselineId}
-              onNew={() => navigate("studio")}
-              onReevaluate={reevaluate}
-              notify={notify}
-            />
-          )}
-          {view === "reports" && (
-            <ReportsPage
-              reports={reports}
-              onNew={() => navigate("studio")}
-              onOpen={(r) => openReport(r)}
-              onCompare={(current, baseline) => openReport(current, baseline.id)}
-              onDelete={deleteReport}
-              onClear={() => setDialog("clear")}
-              onExportBackup={exportBackup}
-              onImportBackup={importBackup}
-            />
-          )}
-          {view === "personas" && (
-            <PersonasPage
-              personas={personas}
-              selected={draft.selected}
-              onToggle={togglePersona}
-              onCustom={() => {
-                setEditingPersona(null);
-                setDialog("persona");
-              }}
-              onEdit={(p) => {
-                setEditingPersona(p);
-                setDialog("persona");
-              }}
-              onDelete={deletePersona}
-              onResetDefault={resetDefaultPersonas}
-            />
-          )}
-          {view === "guide" && <GuidePage onNew={() => navigate("studio")} />}
+              style={{ width: "100%" }}
+            >
+              {view === "studio" && (
+                <Studio
+                  draft={draft}
+                  setDraft={setDraft}
+                  personas={personas}
+                  onRun={() => void run()}
+                  onPreset={preset}
+                  onCustom={() => {
+                    setEditingPersona(null);
+                    setDialog("persona");
+                  }}
+                  running={running}
+                  onCancel={cancel}
+                  hasKey={!!apiKey}
+                  onKey={() => openKey()}
+                  phase={phase}
+                  runError={runError}
+                  onErrorAction={errorAction}
+                  onDismissError={() => setRunError(null)}
+                  session={session?.data ?? null}
+                  guestQuota={guestQuota}
+                  onOpenAuth={openAuth}
+                  onOpenPrivacy={() => setPrivacyModalOpen(true)}
+                />
+              )}
+              {view === "report" && activeReport && (
+                <ReportView
+                  key={`${activeReport.id}-${compareBaselineId || ""}`}
+                  report={activeReport}
+                  reports={allKnownReports}
+                  initialBaselineId={compareBaselineId}
+                  onNew={() => navigate("studio")}
+                  onReevaluate={reevaluate}
+                  notify={notify}
+                />
+              )}
+              {view === "reports" && (
+                <ReportsPage
+                  reports={reports}
+                  onNew={() => navigate("studio")}
+                  onOpen={(r) => openReport(r)}
+                  onCompare={(current, baseline) => openReport(current, baseline.id)}
+                  onDelete={deleteReport}
+                  onClear={() => setDialog("clear")}
+                  onExportBackup={exportBackup}
+                  onImportBackup={importBackup}
+                />
+              )}
+              {view === "personas" && (
+                <PersonasPage
+                  personas={personas}
+                  selected={draft.selected}
+                  onToggle={togglePersona}
+                  onCustom={() => {
+                    setEditingPersona(null);
+                    setDialog("persona");
+                  }}
+                  onEdit={(p) => {
+                    setEditingPersona(p);
+                    setDialog("persona");
+                  }}
+                  onDelete={deletePersona}
+                  onResetDefault={resetDefaultPersonas}
+                />
+              )}
+              {view === "guide" && <GuidePage onNew={() => navigate("studio")} />}
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
       {dialog === "key" && (
