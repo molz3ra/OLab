@@ -2,7 +2,7 @@ import { betterAuth } from "better-auth";
 import { getDatabase } from "./db";
 import crypto from "node:crypto";
 
-// Resolução de segredo criptográfico com fallback randômico efêmero em memória
+// Resolução de segredo criptográfico: consistente em desenvolvimento, rigoroso em produção
 const getAuthSecret = (): string => {
   if (process.env.BETTER_AUTH_SECRET && process.env.BETTER_AUTH_SECRET.trim().length >= 16) {
     return process.env.BETTER_AUTH_SECRET.trim();
@@ -12,13 +12,18 @@ const getAuthSecret = (): string => {
       "[SECURITY WARNING] BETTER_AUTH_SECRET não está definido! Defina uma chave segura nas variáveis de ambiente."
     );
   }
-  // Chave criptograficamente forte gerada em tempo de execução
-  return crypto.randomBytes(32).toString("hex");
+  // Segredo estável de desenvolvimento local (evita invalidar sessões e cookies a cada reload do Next.js)
+  return "olab_development_consistent_secret_key_32_bytes_long_ok";
 };
 
 export const auth = betterAuth({
   database: getDatabase(),
   baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
+  trustedOrigins: [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    process.env.BETTER_AUTH_URL || "",
+  ].filter(Boolean),
   secret: getAuthSecret(),
   emailAndPassword: {
     enabled: true,

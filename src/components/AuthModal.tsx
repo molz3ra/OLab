@@ -51,7 +51,16 @@ export function AuthModal({
         });
 
         if (res.error) {
-          setError(res.error.message || "Erro ao criar conta. Verifique os dados.");
+          let errorMsg = "Erro ao criar conta. Verifique os dados.";
+          const raw = (res.error.message || "").toLowerCase();
+          if (res.error.status === 422 || raw.includes("already exists") || raw.includes("exists")) {
+            errorMsg = "Este e-mail já está cadastrado! Clique na aba 'Entrar na conta' acima para fazer login.";
+          } else if (raw.includes("password") || raw.includes("senha")) {
+            errorMsg = "A senha fornecida não cumpre os requisitos de segurança.";
+          } else if (res.error.message) {
+            errorMsg = res.error.message;
+          }
+          setError(errorMsg);
           setLoading(false);
           return;
         }
@@ -62,7 +71,14 @@ export function AuthModal({
         });
 
         if (res.error) {
-          setError("E-mail ou senha incorretos.");
+          let errorMsg = "E-mail ou senha incorretos.";
+          const raw = (res.error.message || "").toLowerCase();
+          if (raw.includes("invalid") || raw.includes("credentials") || raw.includes("password")) {
+            errorMsg = "E-mail ou senha incorretos. Verifique suas credenciais.";
+          } else if (res.error.message) {
+            errorMsg = res.error.message;
+          }
+          setError(errorMsg);
           setLoading(false);
           return;
         }
@@ -82,12 +98,23 @@ export function AuthModal({
     setError(null);
     setLoading(true);
     try {
-      await signIn.social({
+      const res = await signIn.social({
         provider,
         callbackURL: window.location.origin,
       });
-    } catch {
-      setError(`Não foi possível iniciar sessão com ${provider}. Configure as credenciais no .env.local.`);
+
+      if (res?.error) {
+        setError(
+          `O login social com ${provider === "google" ? "Google" : "GitHub"} requer credenciais OAuth configuradas no servidor (.env.local). Utilize seu e-mail e senha abaixo para criar ou acessar sua conta.`
+        );
+        setLoading(false);
+        return;
+      }
+    } catch (err) {
+      console.error("[handleSocial error]", err);
+      setError(`Não foi possível conectar com ${provider}. Por favor, acesse via e-mail e senha.`);
+      setLoading(false);
+    } finally {
       setLoading(false);
     }
   }
