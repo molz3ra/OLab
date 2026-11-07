@@ -12,6 +12,7 @@ export async function GET(req: NextRequest) {
     const result = await scrapeLandingPage(url);
     return NextResponse.json({
       text: result.markdown,
+      title: result.title,
       ms: result.durationMs,
     });
   } catch (error) {

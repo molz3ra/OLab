@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio';
 
 export interface ScrapeResult {
   markdown: string;
+  title?: string;
   charCount: number;
   estimatedTokens: number;
   durationMs: number;
@@ -33,7 +34,7 @@ function truncateToTokenBudget(text: string, maxChars: number = MAX_CHAR_BUDGET)
 /**
  * Fallback semântico com Cheerio para extração direta de landing pages
  */
-async function scrapeWithCheerio(url: string): Promise<string> {
+async function scrapeWithCheerio(url: string): Promise<{ markdown: string; title?: string }> {
   const response = await fetch(url, {
     headers: {
       'User-Agent':
@@ -54,8 +55,8 @@ async function scrapeWithCheerio(url: string): Promise<string> {
   // Remove elementos desnecessários que poluem a análise
   $('script, style, noscript, iframe, svg, nav, footer, header').remove();
 
-  const title = $('title').text().trim();
-  const metaDesc = $('meta[name="description"]').attr('content') || '';
+  const title = $('title').text().trim() || $('meta[property="og:title"]').attr('content') || '';
+  const metaDesc = $('meta[name="description"]').attr('content') || $('meta[property="og:description"]').attr('content') || '';
 
   const headings: string[] = [];
   $('h1, h2, h3').each((_, el) => {
@@ -83,7 +84,7 @@ async function scrapeWithCheerio(url: string): Promise<string> {
     }
   });
 
-  let markdown = `# ${title}\n\n`;
+  let markdown = title ? `# ${title}\n\n` : '';
   if (metaDesc) markdown += `> Resumo/Meta: ${metaDesc}\n\n`;
 
   if (headings.length > 0) {
@@ -98,7 +99,7 @@ async function scrapeWithCheerio(url: string): Promise<string> {
     markdown += `## Conteúdo Textual Principal:\n${paragraphs.slice(0, 30).join('\n\n')}\n`;
   }
 
-  return markdown;
+  return { markdown, title: title || undefined };
 }
 
 /**
@@ -138,12 +139,14 @@ export async function scrapeLandingPage(input: string): Promise<ScrapeResult> {
     if (jinaRes.ok) {
       const rawMarkdown = await jinaRes.text();
       if (rawMarkdown && rawMarkdown.trim().length > 100) {
+        const titleMatch = rawMarkdown.match(/^Title:\s*(.+)$/m)?.[1]?.trim();
         const sanitized = sanitizeText(rawMarkdown);
         const truncated = truncateToTokenBudget(sanitized);
         const durationMs = Math.round(performance.now() - startTime);
 
         return {
           markdown: truncated,
+          title: titleMatch || undefined,
           charCount: truncated.length,
           estimatedTokens: Math.round(truncated.length / 4),
           durationMs,
@@ -157,13 +160,14 @@ export async function scrapeLandingPage(input: string): Promise<ScrapeResult> {
 
   // Tentativa 2: Fallback direto com Cheerio
   try {
-    const cheerioMarkdown = await scrapeWithCheerio(url);
-    const sanitized = sanitizeText(cheerioMarkdown);
+    const cheerioResult = await scrapeWithCheerio(url);
+    const sanitized = sanitizeText(cheerioResult.markdown);
     const truncated = truncateToTokenBudget(sanitized);
     const durationMs = Math.round(performance.now() - startTime);
 
     return {
       markdown: truncated,
+      title: cheerioResult.title,
       charCount: truncated.length,
       estimatedTokens: Math.round(truncated.length / 4),
       durationMs,

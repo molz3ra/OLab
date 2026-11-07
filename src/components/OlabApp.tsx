@@ -196,16 +196,16 @@ function Sidebar({
           <button className="guide-link" onClick={() => onNavigate("guide")}>
             <Icon name="book" size={17} /> Guia de análise <Icon name="arrowUp" size={13} />
           </button>
-          <button className={`connection-card ${hasKey ? "is-connected" : ""}`} onClick={onKey}>
+          <button className={`connection-card ${hasKey ? "is-connected" : "is-server"}`} onClick={onKey}>
             <div>
               <Icon name="key" size={17} />
-              <span>{hasKey ? `Gemini · ${modelLabel(model)}` : "Traga sua própria chave"}</span>
+              <span>{hasKey ? `Gemini · ${modelLabel(model)}` : "Modo Servidor Ativo"}</span>
               <Icon name="chevron" size={13} />
             </div>
             <p>
               {hasKey
-                ? "Chave salva neste navegador. Gerencie ou troque o modelo."
-                : "Conecte sua chave do Google Gemini para analisar."}
+                ? "Chave pessoal ativa (BYOK). Clique para gerenciar."
+                : "Usando a chave padrão do sistema. Clique para conectar chave pessoal."}
             </p>
           </button>
           <ThemeSwitch value={theme} onChange={onTheme} />
@@ -401,6 +401,38 @@ function Studio({
   const [error, setError] = useState<string | null>(null);
   const [clipboardError, setClipboardError] = useState("");
   const [elapsed, setElapsed] = useState(0);
+  const [urlChecking, setUrlChecking] = useState(false);
+  const [urlPreview, setUrlPreview] = useState<{ title?: string; chars?: number; error?: string } | null>(null);
+
+  const checkUrl = async () => {
+    const raw = draft.url.trim();
+    if (!raw.startsWith("http://") && !raw.startsWith("https://")) {
+      setUrlPreview({ error: "Digite ou cole uma URL iniciando com https://" });
+      return;
+    }
+    setUrlChecking(true);
+    setUrlPreview(null);
+    try {
+      const res = await fetch(`/api/scrape?url=${encodeURIComponent(raw)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.text) {
+          setUrlPreview({
+            title: data.title || "Página lida com sucesso",
+            chars: data.text.length,
+          });
+        } else {
+          setUrlPreview({ error: "Nenhum conteúdo textual encontrado na URL." });
+        }
+      } else {
+        setUrlPreview({ error: "Não foi possível acessar esta URL." });
+      }
+    } catch {
+      setUrlPreview({ error: "Falha de rede ao tentar ler a URL." });
+    } finally {
+      setUrlChecking(false);
+    }
+  };
   const update = (patch: Partial<Draft>) => {
     setError(null);
     onDismissError();
@@ -524,17 +556,34 @@ function Studio({
                     <input
                       id="page-url"
                       value={draft.url}
-                      onChange={(e) => update({ url: e.target.value })}
+                      onChange={(e) => {
+                        update({ url: e.target.value });
+                        setUrlPreview(null);
+                      }}
                       placeholder="https://suaempresa.com"
                       autoComplete="url"
                       aria-describedby="url-hint"
                     />
+                    {draft.url.trim().startsWith("http") && (
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        style={{ padding: "0 10px", height: "30px", fontSize: "11px", whiteSpace: "nowrap" }}
+                        onClick={checkUrl}
+                        disabled={urlChecking}
+                        title="Testar leitura e ver prévia do conteúdo"
+                      >
+                        {urlChecking ? "Lendo…" : "Verificar"}
+                      </button>
+                    )}
                     <button
                       type="button"
                       aria-label="Colar URL"
                       onClick={async () => {
                         try {
-                          update({ url: await navigator.clipboard.readText() });
+                          const pasted = await navigator.clipboard.readText();
+                          update({ url: pasted });
+                          setUrlPreview(null);
                           setClipboardError("");
                         } catch {
                           setClipboardError(
@@ -546,6 +595,22 @@ function Studio({
                       <Icon name="copy" size={15} />
                     </button>
                   </div>
+                  {urlPreview && (
+                    <div className={`url-preview-card ${urlPreview.error ? "is-error" : "is-ready"}`}>
+                      <Icon name={urlPreview.error ? "alert" : "check"} size={14} />
+                      <div style={{ flex: 1 }}>
+                        <strong>{urlPreview.error ? "Aviso de leitura" : urlPreview.title}</strong>
+                        <small>
+                          {urlPreview.error
+                            ? urlPreview.error
+                            : `${urlPreview.chars?.toLocaleString("pt-BR")} caracteres identificados · Pronto para a banca`}
+                        </small>
+                      </div>
+                      <button type="button" className="icon-button" onClick={() => setUrlPreview(null)}>
+                        <Icon name="close" size={13} />
+                      </button>
+                    </div>
+                  )}
                   <p className="field-hint" id="url-hint">
                     {clipboardError ||
                       "A página precisa ser pública. O texto é extraído antes de ir para a banca."}
@@ -726,17 +791,26 @@ function Studio({
               </div>
             ) : (
               <>
-                {!hasKey && (
-                  <p className="key-reminder">
-                    <Icon name="key" size={15} />
-                    <span>
-                      Adicione sua chave do Gemini para rodar análises.{" "}
-                      <button type="button" className="inline-link" onClick={onKey}>
-                        Configurar chave
-                      </button>
-                    </span>
-                  </p>
-                )}
+                <p className={`key-reminder ${hasKey ? "is-personal" : "is-server"}`}>
+                  <Icon name={hasKey ? "key" : "sparkle"} size={15} />
+                  <span>
+                    {hasKey ? (
+                      <>
+                        Chave pessoal ativa (<strong>BYOK</strong>).{" "}
+                        <button type="button" className="inline-link" onClick={onKey}>
+                          Gerenciar chave
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        Pronto para analisar com a <strong>chave compartilhada do servidor</strong>.{" "}
+                        <button type="button" className="inline-link" onClick={onKey}>
+                          Usar sua própria API Key
+                        </button>
+                      </>
+                    )}
+                  </span>
+                </p>
                 <div className="submit-row">
                   <div className="selected-avatars">
                     {draft.selected.slice(0, 4).map((id) => (
@@ -756,7 +830,10 @@ function Studio({
                 </div>
                 <div className="submit-footnote">
                   <span>
-                    <Icon name="lock" size={12} /> Enviado só ao Google, com a sua chave.
+                    <Icon name={hasKey ? "lock" : "sparkle"} size={12} />{" "}
+                    {hasKey
+                      ? "Enviado só ao Google com a sua chave pessoal."
+                      : "Executando com a chave padrão do sistema."}
                   </span>
                   <span>⌘ / Ctrl + Enter</span>
                 </div>
@@ -1082,14 +1159,45 @@ function ReportView({
             </button>
             {exportOpen && (
               <div className="dropdown-menu">
-                <button onClick={download}>Baixar Markdown</button>
                 <button
+                  type="button"
+                  onClick={() => {
+                    void copy(customRewrites[copyStyle]);
+                    notify("Copy otimizada copiada para a área de transferência!");
+                    setExportOpen(false);
+                  }}
+                >
+                  <Icon name="copy" size={13} /> Copiar copy revisada
+                </button>
+                <button type="button" onClick={download}>
+                  <Icon name="download" size={13} /> Baixar Markdown (.md)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const blob = new Blob([JSON.stringify(report, null, 2)], {
+                      type: "application/json;charset=utf-8",
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${report.id.toLowerCase()}.json`;
+                    a.click();
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                    setExportOpen(false);
+                    notify("JSON do relatório baixado.");
+                  }}
+                >
+                  <Icon name="report" size={13} /> Baixar JSON (.json)
+                </button>
+                <button
+                  type="button"
                   onClick={() => {
                     setExportOpen(false);
                     window.print();
                   }}
                 >
-                  Imprimir / salvar PDF
+                  <Icon name="globe" size={13} /> Imprimir / salvar PDF
                 </button>
               </div>
             )}
@@ -1704,6 +1812,11 @@ function KeyDialog({
   };
   const submit = async () => {
     const value = key.trim();
+    if (!value) {
+      // Se salvar vazio, usa o modo servidor compartilhado
+      onSave("", selected);
+      return;
+    }
     if (!/^AIza[\w-]{25,}$/.test(value)) {
       setError("Confira o formato da chave fornecida pelo Google AI Studio.");
       return;
@@ -1730,15 +1843,15 @@ function KeyDialog({
     }
   };
   return (
-    <DialogFrame title="Sua chave. Seu controle." eyebrow="CONFIGURAÇÃO DA API" onClose={onClose}>
+    <DialogFrame title="Conexão & Chave da API" eyebrow="CONFIGURAÇÃO DA IA" onClose={onClose}>
       {notice && (
         <p className="dialog-notice" role="status">
           <Icon name="key" size={15} /> {notice}
         </p>
       )}
       <p className="dialog-description">
-        As análises são feitas pelo Google Gemini com a sua própria chave, direto deste navegador.
-        Não há servidor do OLAB no caminho.
+        O OLAB permite alternar entre a <strong>chave compartilhada do servidor</strong> (ideal para testar sem fricção)
+        ou a <strong>sua própria chave Google Gemini</strong> (BYOK, com limites maiores e privacidade total).
       </p>
       <form
         onSubmit={(e) => {
@@ -1747,7 +1860,7 @@ function KeyDialog({
         }}
       >
         <label className="field-label" htmlFor="api-key">
-          Chave da API
+          Chave Pessoal (BYOK)
         </label>
         <div className="key-input">
           <Icon name="key" size={17} />
@@ -1759,7 +1872,7 @@ function KeyDialog({
               setKey(e.target.value);
               reset();
             }}
-            placeholder="AIza…"
+            placeholder="Deixe em branco para usar o modo servidor ou cole sua chave AIza…"
             autoComplete="off"
             spellCheck={false}
             aria-invalid={!!error && !unverified}
@@ -1778,14 +1891,28 @@ function KeyDialog({
             {error}
           </p>
         )}
-        <a
-          className="text-button"
-          href="https://aistudio.google.com/app/apikey"
-          target="_blank"
-          rel="noreferrer"
-        >
-          Criar uma chave no Google AI Studio <Icon name="arrowUp" size={14} />
-        </a>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "8px" }}>
+          <a
+            className="text-button"
+            href="https://aistudio.google.com/app/apikey"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Criar chave pessoal no Google AI Studio <Icon name="arrowUp" size={14} />
+          </a>
+          {current && (
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => {
+                setKey("");
+                onSave("", selected);
+              }}
+            >
+              Alternar para Chave do Servidor
+            </button>
+          )}
+        </div>
         <fieldset className="model-field">
           <legend className="field-label">Modelo</legend>
           {GEMINI_MODELS.map((m) => (
@@ -1813,19 +1940,26 @@ function KeyDialog({
         <div className="security-note">
           <Icon name="lock" size={17} />
           <p>
-            A chave fica salva apenas neste navegador e só é enviada ao Google, a cada análise. Ao
-            analisar uma URL, o endereço passa pelo Jina Reader para extrair o texto. Não use uma
-            chave sensível em um computador compartilhado.
+            No modo BYOK, sua chave fica armazenada exclusivamente no seu navegador. No modo compartilhado,
+            as requisições são intermediadas com segurança pelo backend do OLAB sem persistir dados pessoais.
           </p>
         </div>
         <div className="dialog-actions">
-          {current && (
+          {current ? (
             <button
               type="button"
               className="text-button danger"
               onClick={() => onSave("", selected)}
             >
-              <Icon name="trash" size={15} /> Remover chave
+              <Icon name="trash" size={15} /> Remover chave pessoal
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => onClose()}
+            >
+              Continuar com Chave do Servidor
             </button>
           )}
           {unverified && (
@@ -1837,14 +1971,18 @@ function KeyDialog({
               Salvar mesmo assim
             </button>
           )}
-          <button className="primary-button" disabled={!key.trim() || checking} type="submit">
+          <button className="primary-button" disabled={checking} type="submit">
             {checking ? (
               <>
                 <span className="spinner" /> Verificando…
               </>
+            ) : key.trim() ? (
+              <>
+                Verificar e salvar chave <Icon name="arrow" size={16} />
+              </>
             ) : (
               <>
-                Verificar e salvar <Icon name="arrow" size={16} />
+                Salvar preferências <Icon name="check" size={16} />
               </>
             )}
           </button>
@@ -1855,36 +1993,46 @@ function KeyDialog({
 }
 
 function PersonaDialog({
-  onAdd,
+  initialPersona,
+  onSave,
   onClose,
 }: {
-  onAdd: (persona: Persona) => void;
+  initialPersona?: Persona | null;
+  onSave: (persona: Persona) => void;
   onClose: () => void;
 }) {
-  const [name, setName] = useState("");
-  const [role, setRole] = useState("");
-  const [fears, setFears] = useState("");
-  const [skepticism, setSkepticism] = useState(7);
-  const [style, setStyle] = useState("Analítico e objetivo");
+  const [name, setName] = useState(initialPersona?.name || "");
+  const [role, setRole] = useState(initialPersona?.role || "");
+  const [fears, setFears] = useState(initialPersona?.fears || initialPersona?.focus || "");
+  const [skepticism, setSkepticism] = useState(initialPersona?.skepticism || 7);
+  const [style, setStyle] = useState(initialPersona?.style || "Analítico e objetivo");
+  const isEditing = !!initialPersona;
+
   return (
-    <DialogFrame title="Quem mais precisa ser ouvido?" eyebrow="NOVA PERSONA" onClose={onClose}>
+    <DialogFrame
+      title={isEditing ? "Editar perspectiva do perfil" : "Quem mais precisa ser ouvido?"}
+      eyebrow={isEditing ? "EDITAR PERSONA" : "NOVA PERSONA"}
+      onClose={onClose}
+    >
       <p className="dialog-description">
-        Traga para a banca uma perspectiva específica do seu mercado.
+        {isEditing
+          ? "Atualize os critérios de julgamento e preocupações centrais deste perfil."
+          : "Traga para a banca uma perspectiva específica do seu mercado."}
       </p>
       <form
         className="persona-form"
         onSubmit={(e) => {
           e.preventDefault();
           if (name.trim() && role.trim())
-            onAdd({
-              id: `custom-${Date.now()}`,
+            onSave({
+              id: initialPersona?.id || `custom-${Date.now()}`,
               name: name.trim(),
               role: role.trim(),
               focus: fears.trim() || role.trim(),
               fears: fears.trim(),
               skepticism,
               style,
-              icon: "people",
+              icon: initialPersona?.icon || "people",
             });
         }}
       >
@@ -1950,7 +2098,8 @@ function PersonaDialog({
             Cancelar
           </button>
           <button className="primary-button" type="submit" disabled={!name.trim() || !role.trim()}>
-            Adicionar persona <Icon name="plus" size={16} />
+            {isEditing ? "Salvar alterações" : "Adicionar persona"}{" "}
+            <Icon name={isEditing ? "check" : "plus"} size={16} />
           </button>
         </div>
       </form>
@@ -2106,6 +2255,8 @@ function ReportsPage({
   onNew,
   onDelete,
   onClear,
+  onExportBackup,
+  onImportBackup,
 }: {
   reports: Report[];
   onOpen: (report: Report) => void;
@@ -2113,12 +2264,15 @@ function ReportsPage({
   onNew: () => void;
   onDelete: (id: string) => void;
   onClear: () => void;
+  onExportBackup: () => void;
+  onImportBackup: (imported: Report[]) => void;
 }) {
   const [confirming, setConfirming] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [segmentFilter, setSegmentFilter] = useState<string>("all");
   const [compareMode, setCompareMode] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const filtered = reports.filter((r) => {
     const matchesSegment = segmentFilter === "all" || r.segment === segmentFilter;
     const q = query.trim().toLowerCase();
@@ -2145,6 +2299,21 @@ function ReportsPage({
         ? [first, second]
         : [second, first];
     onCompare(newer, older);
+  };
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target?.result as string);
+        if (Array.isArray(parsed)) {
+          onImportBackup(parsed);
+        }
+      } catch {}
+    };
+    reader.readAsText(file);
+    e.target.value = "";
   };
   return (
     <>
@@ -2208,6 +2377,29 @@ function ReportsPage({
                 Abrir comparação ({picked.length}/2) <Icon name="arrow" size={15} />
               </button>
             )}
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={onExportBackup}
+              title="Baixar todos os relatórios em JSON"
+            >
+              <Icon name="download" size={13} /> Exportar backup
+            </button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept=".json"
+              style={{ display: "none" }}
+            />
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => fileInputRef.current?.click()}
+              title="Importar relatórios de arquivo JSON"
+            >
+              <Icon name="arrowUp" size={13} /> Importar backup
+            </button>
           </div>
           {filtered.length ? (
             <div className="reports-table">
@@ -2336,15 +2528,21 @@ function PersonasPage({
   selected,
   onToggle,
   onCustom,
+  onEdit,
   onDelete,
+  onResetDefault,
 }: {
   personas: Persona[];
   selected: string[];
   onToggle: (id: string) => void;
   onCustom: () => void;
+  onEdit: (persona: Persona) => void;
   onDelete: (id: string) => void;
+  onResetDefault: () => void;
 }) {
   const [confirming, setConfirming] = useState<string | null>(null);
+  const hasCustom = personas.some((p) => p.id.startsWith("custom-"));
+
   return (
     <>
       <div className="simple-page-heading">
@@ -2354,9 +2552,21 @@ function PersonasPage({
       </div>
       <div className="library-toolbar">
         <span>{selected.length} de 5 perfis na próxima análise</span>
-        <button className="primary-button" onClick={onCustom}>
-          Criar persona <Icon name="plus" size={17} />
-        </button>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          {hasCustom && (
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={onResetDefault}
+              title="Restaura os perfis originais do OLAB"
+            >
+              Restaurar banca padrão
+            </button>
+          )}
+          <button className="primary-button" onClick={onCustom}>
+            Criar persona <Icon name="plus" size={17} />
+          </button>
+        </div>
       </div>
       <div className="persona-library">
         {personas.map((p, i) => (
@@ -2389,31 +2599,41 @@ function PersonasPage({
               <Icon name={selected.includes(p.id) ? "check" : "plus"} size={15} />
               {selected.includes(p.id) ? "Na sua banca" : "Adicionar à banca"}
             </button>
-            {p.id.startsWith("custom-") &&
-              (confirming === p.id ? (
-                <div className="row-confirm" role="group" aria-label="Confirmar exclusão">
-                  <span>Excluir este perfil?</span>
-                  <button
-                    className="danger"
-                    onClick={() => {
-                      setConfirming(null);
-                      onDelete(p.id);
-                    }}
-                  >
-                    Sim
-                  </button>
-                  <button onClick={() => setConfirming(null)} autoFocus>
-                    Não
-                  </button>
-                </div>
-              ) : (
+            {p.id.startsWith("custom-") && (
+              <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "10px" }}>
                 <button
-                  className="text-button danger persona-delete"
-                  onClick={() => setConfirming(p.id)}
+                  type="button"
+                  className="text-button"
+                  onClick={() => onEdit(p)}
                 >
-                  <Icon name="trash" size={14} /> Excluir perfil
+                  <Icon name="pencil" size={14} /> Editar
                 </button>
-              ))}
+                {confirming === p.id ? (
+                  <div className="row-confirm" role="group" aria-label="Confirmar exclusão">
+                    <span>Excluir?</span>
+                    <button
+                      className="danger"
+                      onClick={() => {
+                        setConfirming(null);
+                        onDelete(p.id);
+                      }}
+                    >
+                      Sim
+                    </button>
+                    <button onClick={() => setConfirming(null)} autoFocus>
+                      Não
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    className="text-button danger persona-delete"
+                    onClick={() => setConfirming(p.id)}
+                  >
+                    <Icon name="trash" size={14} /> Excluir
+                  </button>
+                )}
+              </div>
+            )}
           </article>
         ))}
       </div>
@@ -2518,6 +2738,7 @@ export default function App() {
   const [dialog, setDialog] = useState<Dialog>(null);
   const [keyNotice, setKeyNotice] = useState("");
   const [mobileNav, setMobileNav] = useState(false);
+  const [editingPersona, setEditingPersona] = useState<Persona | null>(null);
   const [personas, setPersonas] = useState<Persona[]>(initialPersonas);
   const [draft, setDraft] = useState<Draft>(() => initialDraft(personas));
   const [reports, setReports] = useState<Report[]>(() => load(KEYS.reports, parseReports, []));
@@ -2636,10 +2857,6 @@ export default function App() {
         ? { baselineId: pendingBaseline.id, iteration: pendingBaseline.iteration }
         : undefined);
     if (running || validateDraft(snapshot)) return;
-    if (!apiKey) {
-      openKey("Adicione sua chave do Gemini para analisar.");
-      return;
-    }
     const controller = new AbortController();
     runController.current = controller;
     const panel = personas.filter((p) => snapshot.selected.includes(p.id));
@@ -2798,6 +3015,38 @@ export default function App() {
         : "Chave removida deste navegador.",
     );
   };
+  const resetDefaultPersonas = () => {
+    setPersonas(PERSONAS);
+    persist(KEYS.personas, []);
+    notify("Banca de personas restaurada para os padrões originais.");
+  };
+
+  const exportBackup = () => {
+    const data = JSON.stringify(reports, null, 2);
+    const blob = new Blob([data], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `olab-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    notify("Backup dos relatórios exportado em JSON.");
+  };
+
+  const importBackup = (imported: Report[]) => {
+    if (!Array.isArray(imported) || imported.length === 0) {
+      notify("Arquivo de backup inválido ou vazio.");
+      return;
+    }
+    setReports((old) => {
+      const existingIds = new Set(old.map((r) => r.id));
+      const newItems = imported.filter((r) => r.id && !existingIds.has(r.id));
+      const merged = [...newItems, ...old].slice(0, 30);
+      notify(`${newItems.length} novos relatórios importados com sucesso.`);
+      return merged;
+    });
+  };
+
   const allKnownReports = [
     ...reports,
     ...sessionExamples.filter((e) => !reports.some((r) => r.id === e.id)),
@@ -2834,21 +3083,27 @@ export default function App() {
             >
               <Icon name="menu" />
             </button>
-            <span>Workspace</span>
+            <button
+              type="button"
+              className="crumb-button"
+              onClick={() => navigate("studio")}
+            >
+              Workspace
+            </button>
             <Icon name="chevron" size={12} />
             <strong>{labels[view]}</strong>
           </div>
           <div className="topbar-actions">
             <button
-              className={`demo-status ${apiKey ? "is-connected" : ""}`}
+              className={`demo-status ${apiKey ? "is-connected" : "is-server"}`}
               onClick={() => openKey()}
               aria-label={
                 apiKey
-                  ? `Gemini ${modelLabel(model)} conectado. Gerenciar chave`
-                  : "Sem chave da API. Configurar chave"
+                  ? `Gemini ${modelLabel(model)} conectado (BYOK). Gerenciar chave`
+                  : "Modo servidor ativo. Clique para configurar chave própria"
               }
             >
-              <i /> {apiKey ? `Gemini · ${modelLabel(model)}` : "Sem chave da API"}
+              <i /> {apiKey ? `BYOK · ${modelLabel(model)}` : "Modo Servidor Ativo"}
             </button>
             <span className="topbar-divider" />
             <button
@@ -2880,7 +3135,10 @@ export default function App() {
               personas={personas}
               onRun={() => void run()}
               onPreset={preset}
-              onCustom={() => setDialog("persona")}
+              onCustom={() => {
+                setEditingPersona(null);
+                setDialog("persona");
+              }}
               running={running}
               onCancel={cancel}
               hasKey={!!apiKey}
@@ -2910,6 +3168,8 @@ export default function App() {
               onCompare={(current, baseline) => openReport(current, baseline.id)}
               onDelete={deleteReport}
               onClear={() => setDialog("clear")}
+              onExportBackup={exportBackup}
+              onImportBackup={importBackup}
             />
           )}
           {view === "personas" && (
@@ -2917,8 +3177,16 @@ export default function App() {
               personas={personas}
               selected={draft.selected}
               onToggle={togglePersona}
-              onCustom={() => setDialog("persona")}
+              onCustom={() => {
+                setEditingPersona(null);
+                setDialog("persona");
+              }}
+              onEdit={(p) => {
+                setEditingPersona(p);
+                setDialog("persona");
+              }}
               onDelete={deletePersona}
+              onResetDefault={resetDefaultPersonas}
             />
           )}
           {view === "guide" && <GuidePage onNew={() => navigate("studio")} />}
@@ -2935,13 +3203,25 @@ export default function App() {
       )}
       {dialog === "persona" && (
         <PersonaDialog
-          onClose={closeDialog}
-          onAdd={(persona) => {
-            setPersonas((old) => [...old, persona]);
-            if (draft.selected.length < 5)
+          initialPersona={editingPersona}
+          onClose={() => {
+            setEditingPersona(null);
+            closeDialog();
+          }}
+          onSave={(persona) => {
+            setPersonas((old) => {
+              const exists = old.some((p) => p.id === persona.id);
+              if (exists) {
+                return old.map((p) => (p.id === persona.id ? persona : p));
+              }
+              return [...old, persona];
+            });
+            if (!draft.selected.includes(persona.id) && draft.selected.length < 5) {
               setDraft((old) => ({ ...old, selected: [...old.selected, persona.id] }));
-            setDialog(null);
-            notify("Nova perspectiva adicionada à biblioteca de personas.");
+            }
+            setEditingPersona(null);
+            closeDialog();
+            notify(editingPersona ? "Perfil de persona atualizado." : "Nova perspectiva adicionada à banca.");
           }}
         />
       )}
