@@ -1,29 +1,19 @@
-import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
-
 export const metadata: Metadata = {
-  title: 'OLAB — Laboratório de Objeções & Fricção de Conversão',
+  title: 'OLAB — O outro lado da sua oferta',
   description:
-    'Audite a eficácia e objeções da sua Landing Page ou Copy com uma banca sintética antes de alocar capital em tráfego pago.',
-  keywords: [
-    'ObjectionLab',
-    'CRO',
-    'Copywriting',
-    'Auditoria de Conversão',
-    'Simulação de Objeções',
-    'Focus Group Sintético',
-  ],
+    'OLAB — Um laboratório para questionar sua oferta, encontrar objeções e reduzir o atrito antes de investir em tráfego.',
+  icons: {
+    icon: '/favicon.png',
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#faf9f6',
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export default function RootLayout({
@@ -32,13 +22,31 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="pt-BR"
-      className={`${geistSans.variable} ${geistMono.variable} dark antialiased`}
-    >
-      <body className="min-h-screen bg-[#090b10] text-[#f3f4f8] flex flex-col font-sans">
-        {children}
-      </body>
+    <html lang="pt-BR" suppressHydrationWarning>
+      <head>
+        <link rel="preload" href="/fonts/dm-sans-latin.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <link rel="preload" href="/fonts/instrument-serif-latin.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <link rel="preload" href="/fonts/ibm-plex-mono-latin.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function () {
+                var theme = "light";
+                try {
+                  var pref = localStorage.getItem("olab_theme") || "system";
+                  theme =
+                    pref === "dark" ||
+                    (pref !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches)
+                      ? "dark"
+                      : "light";
+                } catch (e) {}
+                document.documentElement.dataset.theme = theme;
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body>{children}</body>
     </html>
   );
 }
