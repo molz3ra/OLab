@@ -46,4 +46,8 @@ next-env.d.ts
 # sqlite local database
 olab.db*
 
+# agent runtime / local state
+.omc/
+.impeccable/
+
 2.0/
